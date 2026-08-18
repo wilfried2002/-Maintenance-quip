@@ -29,8 +29,16 @@ class VehiculeController extends Controller
 
     public function index(ModuleDashboardService $service): Response
     {
+        $vehicules = Vehicule::with('chauffeur:id,name')->orderBy('immatriculation')->get();
+        
+        // Ensure photo_url is always present in serialized data for Inertia
+        // This guarantees photos persist after page refresh
+        $vehicules->each(function ($vehicule) {
+            $vehicule->photo_url = $vehicule->getPhotoUrlAttribute();
+        });
+
         return Inertia::render('Vehicules/Index', [
-            'vehicules' => Vehicule::with('chauffeur:id,name')->orderBy('immatriculation')->get(),
+            'vehicules' => $vehicules,
             'chauffeurs' => $this->organisationUsers(),
             'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
             'stats' => $service->calculer(Vehicule::class),

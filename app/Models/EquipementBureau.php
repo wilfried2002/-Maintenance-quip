@@ -18,6 +18,12 @@ class EquipementBureau extends Model
 
     protected $table = 'equipements_bureau';
 
+    /**
+     * Ensure that photo_url accessor is always included in JSON responses.
+     * This is critical for displaying photos in the frontend.
+     */
+    protected $appends = ['photo_url'];
+
     protected $fillable = [
         'organisation_id',
         'code',

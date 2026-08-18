@@ -29,8 +29,16 @@ class EquipementIndustrielController extends Controller
 
     public function index(ModuleDashboardService $service): Response
     {
+        $equipements = EquipementIndustriel::orderBy('designation')->get();
+        
+        // Ensure photo_url is always present in serialized data for Inertia
+        // This guarantees photos persist after page refresh
+        $equipements->each(function ($equipement) {
+            $equipement->photo_url = $equipement->getPhotoUrlAttribute();
+        });
+
         return Inertia::render('EquipementsIndustriels/Index', [
-            'equipements' => EquipementIndustriel::orderBy('designation')->get(),
+            'equipements' => $equipements,
             'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
             'stats' => $service->calculer(EquipementIndustriel::class),
         ]);

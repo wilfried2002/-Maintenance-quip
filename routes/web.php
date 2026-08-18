@@ -6,6 +6,8 @@ use App\Http\Controllers\EquipementBureauController;
 use App\Http\Controllers\EquipementIndustrielController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\IndicateurController;
+use App\Http\Controllers\IndicateurPerformanceController;
+use App\Http\Controllers\IndicateurPiecesController;
 use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\InterventionRapportController;
 use App\Http\Controllers\NotificationController;
@@ -36,6 +38,15 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
 
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+    // Indicateurs de performance des pièces : affichage et recalcul à la demande
+    Route::get('/indicateurs/pieces', [IndicateurPiecesController::class, 'index'])
+        ->middleware('check.role:responsable_maintenance,magasinier')
+        ->name('indicateurs.pieces.index');
+    
+    Route::post('/indicateurs/pieces/recalculate', [IndicateurPerformanceController::class, 'recalculate'])
+        ->middleware('check.role:responsable_maintenance,magasinier')
+        ->name('indicateurs.pieces.recalculate');
 
     // Recherche globale (barre du topbar) : pas de check.role, le filtrage par module se
     // fait à l'intérieur de SearchService (même principe que la sidebar : accessibleModules).

@@ -16,6 +16,12 @@ class Vehicule extends Model
 {
     use HasFactory, SoftDeletes, HasPhoto, HasDocuments, HasPlansMaintenance, BelongsToOrganisation;
 
+    /**
+     * Ensure that photo_url accessor is always included in JSON responses.
+     * This is critical for displaying photos in the frontend.
+     */
+    protected $appends = ['photo_url'];
+
     protected $fillable = [
         'organisation_id',
         'code',

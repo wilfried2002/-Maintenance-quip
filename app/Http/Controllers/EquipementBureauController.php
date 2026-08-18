@@ -29,8 +29,16 @@ class EquipementBureauController extends Controller
 
     public function index(ModuleDashboardService $service): Response
     {
+        $equipements = EquipementBureau::orderBy('designation')->get();
+        
+        // Ensure photo_url is always present in serialized data for Inertia
+        // This guarantees photos persist after page refresh
+        $equipements->each(function ($equipement) {
+            $equipement->photo_url = $equipement->getPhotoUrlAttribute();
+        });
+
         return Inertia::render('EquipementsBureau/Index', [
-            'equipements' => EquipementBureau::orderBy('designation')->get(),
+            'equipements' => $equipements,
             'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
             'stats' => $service->calculer(EquipementBureau::class),
         ]);
