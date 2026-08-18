@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Petits compléments propres à l'appli, distincts de public/vendor/sb-admin-2/sb-admin-2.css
+   (copie non modifiée du template, pour rester fidèle à l'original). */
+.avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #4e73df;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+/* Tuile StatTile cliquable (prop "href") : affordance de lien sans dépendre du hover
+   Bootstrap standard, qui ne prévoit rien pour une carte entière cliquable. */
+.stat-tile-link {
+    display: block;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.stat-tile-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1.5rem rgba(58, 59, 69, 0.25) !important;
+    text-decoration: none;
+}
+
+/* Tailwind-based component shims to modernize cards and keep compatibility
+     with existing Bootstrap-like class names used throughout the app. */
+@layer components {
+    .card {
+        @apply bg-white rounded-lg shadow-sm overflow-hidden;
+    }
+
+    .card-header {
+        @apply px-4 py-3 border-b border-gray-100 bg-gray-50;
+    }
+
+    .card-body {
+        @apply p-4;
+    }
+
+    .card-footer {
+        @apply px-4 py-3 border-t border-gray-100 bg-gray-50;
+    }
+
+    /* left-border affordance used by StatTile and others */
+    .border-start {
+        @apply border-l-4;
+    }
+
+    /* modern stat-tile hover with Tailwind utilities */
+    .stat-tile-link {
+        @apply block no-underline transition transform duration-150 ease-in-out hover:-translate-y-1 hover:shadow-lg;
+    }
+
+    /* Variant helpers (keeps compatible names like border-success, text-warning, etc.) */
+    .border-primary { border-color: #FF2D20 !important; }
+    .border-success { border-color: #10B981 !important; }
+    .border-warning { border-color: #F59E0B !important; }
+    .border-danger  { border-color: #EF4444 !important; }
+    .border-info    { border-color: #06B6D4 !important; }
+    .border-secondary { border-color: #6B7280 !important; }
+
+    .text-primary { color: #FF2D20; }
+    .text-success { color: #10B981; }
+    .text-warning { color: #F59E0B; }
+    .text-danger  { color: #EF4444; }
+    .text-info    { color: #06B6D4; }
+}

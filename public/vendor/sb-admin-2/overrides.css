@@ -1,0 +1,23 @@
+/* Surcharges volontaires par-dessus sb-admin-2.scoped.css (chargé avant celui-ci) :
+   les ombres du template d'origine sont jugées trop marquées pour cette appli — retour
+   utilisateur direct. Mêmes sélecteurs (.sb2-item.X composé / .sb2-page .X descendant)
+   pour garantir une spécificité égale ; ce fichier gagne car chargé en dernier. */
+
+.sb2-item.shadow,
+.sb2-page .shadow {
+    box-shadow: 0 0.125rem 0.5rem 0 rgba(58, 59, 69, 0.08) !important;
+}
+
+.sb2-item.shadow-sm,
+.sb2-page .shadow-sm {
+    box-shadow: 0 0.0625rem 0.15rem 0 rgba(58, 59, 69, 0.08) !important;
+}
+
+.sb2-item.shadow-lg,
+.sb2-page .shadow-lg {
+    box-shadow: 0 0.25rem 1rem 0 rgba(58, 59, 69, 0.12) !important;
+}
+
+.stat-tile-link:hover {
+    box-shadow: 0 0.2rem 0.6rem rgba(58, 59, 69, 0.15) !important;
+}
