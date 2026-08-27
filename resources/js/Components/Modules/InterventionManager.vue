@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { themes, typeInterventionOptions, statutInterventionOptions, prioriteOptions } from '@/moduleTheme';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -14,19 +14,24 @@ const props = defineProps({
     techniciens: { type: Array, required: true },
     pieces: { type: Array, default: () => [] },
     storeUrl: { type: String, required: true },
+    updateUrlBase: { type: String, default: '/interventions' },
+    destroyUrlBase: { type: String, default: '/interventions' },
     equipementLabelKey: { type: String, default: 'designation' },
     showFormBlock: { type: Boolean, default: true },
     showTable: { type: Boolean, default: true },
 });
 
 const t = themes[props.theme] ?? themes.slate;
-const devise = usePage().props.auth.devise;
+const page = usePage();
+const devise = page.props.auth.devise;
+const isAdmin = computed(() => page.props.auth.role === 'admin' || page.props.auth.isSuperAdmin);
 
 // Pré-remplit la recherche du DataTable quand on arrive depuis un résultat de la
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
 const initialSearch = new URLSearchParams(window.location.search).get('q') ?? '';
 
 const showForm = ref(false);
+const editingId = ref(null);
 
 const columns = [
     { key: 'equipementable', label: 'Équipement', sortable: false },
@@ -76,7 +81,7 @@ function saveNotes(intervention) {
     notesForm.put(`/interventions/${intervention.id}/notes`, { preserveScroll: true });
 }
 
-const form = useForm({
+const emptyValues = () => ({
     equipementable_id: '',
     titre: '',
     type_intervention: 'corrective',
@@ -92,13 +97,53 @@ const form = useForm({
     notes: '',
 });
 
+const form = useForm(emptyValues());
+
+function dateTimeLocal(value) {
+    return value ? String(value).slice(0, 16) : '';
+}
+
+function openEdit(intervention) {
+    editingId.value = intervention.id;
+    const values = {
+        ...emptyValues(),
+        ...intervention,
+        date_planifiee: dateTimeLocal(intervention.date_planifiee),
+        date_debut: dateTimeLocal(intervention.date_debut),
+        date_fin: dateTimeLocal(intervention.date_fin),
+        technicien_id: intervention.technicien_id ?? '',
+    };
+    form.defaults(values);
+    form.reset();
+    showForm.value = true;
+}
+
+function cancel() {
+    editingId.value = null;
+    form.defaults(emptyValues());
+    form.reset();
+    showForm.value = false;
+}
+
 function submit() {
-    form.post(props.storeUrl, {
+    const options = {
         onSuccess: () => {
-            form.reset();
-            showForm.value = false;
+            cancel();
         },
-    });
+    };
+
+    if (editingId.value) {
+        form.put(`${props.updateUrlBase}/${editingId.value}`, options);
+        return;
+    }
+
+    form.post(props.storeUrl, options);
+}
+
+function destroy(intervention) {
+    if (confirm(`Supprimer l'intervention « ${intervention.titre} » ? Les pièces consommées seront remises en stock.`)) {
+        form.delete(`${props.destroyUrlBase}/${intervention.id}`, { preserveScroll: true });
+    }
 }
 
 function equipementLabel(equipement) {
@@ -115,7 +160,7 @@ function statutLabel(value) {
         <div v-if="showFormBlock" class="mb-4 flex items-center justify-between">
             <button
                 type="button"
-                @click="showForm = !showForm"
+                @click="showForm ? cancel() : (showForm = true)"
                 class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2"
                 :class="t.button"
             >
@@ -125,7 +170,7 @@ function statutLabel(value) {
 
         <div v-if="showFormBlock && showForm" class="materio-item card shadow mb-4">
             <div class="materio-item card-header py-3">
-                <h6 class="materio-item m-0 fw-bold" :class="t.accent">Nouvelle intervention</h6>
+                <h6 class="materio-item m-0 fw-bold" :class="t.accent">{{ editingId ? 'Modifier l’intervention' : 'Nouvelle intervention' }}</h6>
             </div>
             <div class="materio-item card-body">
                 <form @submit.prevent="submit">
@@ -137,6 +182,7 @@ function statutLabel(value) {
                                 v-model="form.equipementable_id"
                                 class="materio-item form-control"
                                 :class="{ 'is-invalid': form.errors.equipementable_id }"
+                                :disabled="Boolean(editingId)"
                                 required
                             >
                                 <option value="" disabled>Sélectionner…</option>
@@ -228,7 +274,7 @@ function statutLabel(value) {
                             class="rounded-md px-4 py-2 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
                             :class="t.button"
                         >
-                            Enregistrer l'intervention
+                            {{ editingId ? 'Enregistrer les modifications' : 'Enregistrer l’intervention' }}
                         </button>
                     </div>
                 </form>
@@ -271,6 +317,10 @@ function statutLabel(value) {
                     >
                         Rapport PDF
                     </a>
+                    <template v-if="isAdmin">
+                        <button type="button" class="font-medium" :class="t.accent" @click="openEdit(row)">Modifier</button>
+                        <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">Supprimer</button>
+                    </template>
                 </div>
             </template>
 

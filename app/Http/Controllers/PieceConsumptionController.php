@@ -7,6 +7,7 @@ use App\Models\EquipementIndustriel;
 use App\Models\Intervention;
 use App\Models\Piece;
 use App\Models\Vehicule;
+use App\Services\IndicateurPerformanceCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,7 @@ class PieceConsumptionController extends Controller
      * stock du même coup, en figeant le prix unitaire du moment (le prix moyen de la
      * pièce peut évoluer plus tard sans changer le coût déjà comptabilisé).
      */
-    public function store(Request $request, Intervention $intervention): RedirectResponse
+    public function store(Request $request, Intervention $intervention, IndicateurPerformanceCalculator $calculator): RedirectResponse
     {
         $data = $request->validate([
             'piece_id' => ['required', 'exists:pieces,id'],
@@ -57,13 +58,15 @@ class PieceConsumptionController extends Controller
             $piece->decrement('stock_qte', $data['quantite']);
         });
 
+        $calculator->recalculerPiece($piece);
+
         return back()->with('status', 'Pièce ajoutée à l\'intervention.');
     }
 
     /**
      * Retirer une ligne de consommation : restitue la quantité au stock.
      */
-    public function destroy(Intervention $intervention, int $interventionPiece): RedirectResponse
+    public function destroy(Intervention $intervention, int $interventionPiece, IndicateurPerformanceCalculator $calculator): RedirectResponse
     {
         $row = DB::table('intervention_pieces')
             ->where('id', $interventionPiece)
@@ -74,10 +77,14 @@ class PieceConsumptionController extends Controller
             abort(404);
         }
 
-        DB::transaction(function () use ($row) {
-            Piece::where('id', $row->piece_id)->increment('stock_qte', $row->quantite);
+        $piece = Piece::findOrFail($row->piece_id);
+
+        DB::transaction(function () use ($row, $piece) {
+            $piece->increment('stock_qte', $row->quantite);
             DB::table('intervention_pieces')->where('id', $row->id)->delete();
         });
+
+        $calculator->recalculerPiece($piece);
 
         return back()->with('status', 'Pièce retirée de l\'intervention, stock restitué.');
     }

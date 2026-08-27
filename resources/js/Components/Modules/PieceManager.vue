@@ -9,6 +9,7 @@ import DataTable from '@/Components/DataTable.vue';
 const props = defineProps({
     theme: { type: String, required: true },
     pieces: { type: Array, required: true },
+    fournisseurs: { type: Array, required: true },
     storeUrl: { type: String, required: true },
     updateUrlBase: { type: String, required: true },
     destroyUrlBase: { type: String, required: true },
@@ -144,7 +145,13 @@ function enSousStock(piece) {
                         </div>
                         <div class="materio-item form-group col-md-6">
                             <InputLabel for="fournisseur" value="Fournisseur" />
-                            <input id="fournisseur" v-model="form.fournisseur" type="text" class="materio-item form-control" />
+                            <select id="fournisseur" v-model="form.fournisseur" class="materio-item form-select" :class="{ 'is-invalid': form.errors.fournisseur }">
+                                <option value="">Aucun fournisseur</option>
+                                <option v-for="fournisseur in fournisseurs" :key="fournisseur.id" :value="fournisseur.nom">
+                                    {{ fournisseur.nom }}
+                                </option>
+                            </select>
+                            <InputError :message="form.errors.fournisseur" />
                         </div>
                         <div class="materio-item form-group col-12">
                             <InputLabel for="notes" value="Notes" />

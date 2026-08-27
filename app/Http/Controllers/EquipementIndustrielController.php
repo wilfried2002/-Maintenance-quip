@@ -171,6 +171,7 @@ class EquipementIndustrielController extends Controller
     {
         return Inertia::render('EquipementsIndustriels/Pieces', [
             'pieces' => $this->piecesForModule(self::MODULE),
+            'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
         ]);
     }
 

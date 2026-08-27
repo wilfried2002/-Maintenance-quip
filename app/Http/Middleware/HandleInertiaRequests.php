@@ -47,6 +47,9 @@ class HandleInertiaRequests extends Middleware
                 'devise' => $currentOrganisation?->devise ?? 'XOF',
             ],
             'moduleDefs' => config('modules.list'),
+            'flash' => [
+                'status' => fn () => $request->session()->get('status'),
+            ],
             'organisationSwitcher' => ($user?->isSuperAdmin())
                 ? [
                     'current' => $currentOrganisation?->only(['id', 'name', 'code']),

@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { useForm, Head } from '@inertiajs/vue3';
+import { useForm, Head, usePage, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { themes } from '@/moduleTheme';
@@ -10,6 +10,8 @@ const props = defineProps({
 });
 
 const t = themes.purple;
+const page = usePage();
+const statut = computed(() => page.props.flash?.status);
 
 const columns = [
     { key: 'reference', label: 'Référence' },
@@ -32,7 +34,10 @@ const rows = computed(() => props.indicateurs.map((ind) => ({
 const form = useForm({});
 
 function recalculer() {
-    form.post('/indicateurs/recalculer', { preserveScroll: true });
+    form.post(route('indicateurs.recalculer'), {
+        preserveScroll: true,
+        preserveState: false,
+    });
 }
 
 function pourcentage(valeur) {
@@ -77,7 +82,8 @@ function tauxClasses(valeur) {
                     class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium shadow-sm disabled:opacity-50"
                     :class="t.button"
                 >
-                    Recalculer maintenant
+                    <span v-if="form.processing">Calcul en cours…</span>
+                    <span v-else>Recalculer maintenant</span>
                 </button>
             </div>
         </template>
@@ -89,6 +95,10 @@ function tauxClasses(valeur) {
                     Le taux de défaillance est la part des remplacements survenus lors d'une intervention corrective plutôt que préventive.
                 </p>
 
+                <div v-if="statut" class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200" role="status">
+                    {{ statut }}
+                </div>
+
                 <DataTable
                     theme="purple"
                     :columns="columns"
@@ -98,6 +108,11 @@ function tauxClasses(valeur) {
                 >
                     <template #cell-designation="{ row }">
                         <span class="font-medium text-gray-800 dark:text-gray-200">{{ row.designation }}</span>
+                    </template>
+                    <template #cell-reference="{ row }">
+                        <Link :href="route('indicateurs.show', row.piece_id)" class="font-medium text-purple-700 hover:text-purple-900 dark:text-purple-300">
+                            {{ row.reference }}
+                        </Link>
                     </template>
                     <template #cell-duree_vie_moyenne_jours="{ row }">
                         {{ jours(row.duree_vie_moyenne_jours) }}

@@ -7,6 +7,7 @@ import { themes } from '@/moduleTheme';
 
 defineProps({
     pieces: { type: Array, required: true },
+    fournisseurs: { type: Array, required: true },
 });
 
 const t = themes.blue;
@@ -38,6 +39,7 @@ const navLinks = [
                 <PieceManager
                     theme="blue"
                     :pieces="pieces"
+                    :fournisseurs="fournisseurs"
                     store-url="/equipements-bureau/pieces"
                     update-url-base="/equipements-bureau/pieces"
                     destroy-url-base="/equipements-bureau/pieces"
