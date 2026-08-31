@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Organisation;
+use App\Services\RoleService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -39,10 +40,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'role' => $user?->getRole(),
                 'isSuperAdmin' => $user?->isSuperAdmin() ?? false,
+                // Version groupée (2 requêtes au lieu de ~18) : voir
+                // RoleService::modulesAccessibles.
                 'accessibleModules' => $user
-                    ? collect(array_keys(config('modules.list')))
-                        ->filter(fn (string $module) => $user->hasModuleAccess($module))
-                        ->values()
+                    ? RoleService::modulesAccessibles($user)
                     : [],
                 'devise' => $currentOrganisation?->devise ?? 'XOF',
             ],

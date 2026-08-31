@@ -87,27 +87,110 @@ class RoleService
      * $organisationId, toutes les organisations de l'utilisateur sont considérées
      * (utile pour un ciblage non lié à une donnée précise).
      *
+     * Implémentation en UNE requête SQL (l'ancienne version chargeait tous les
+     * utilisateurs puis relançait 2 requêtes par utilisateur pour canAccessModule).
+     * Sémantique identique à canAccessModule : super admin → vrai ; rôle admin →
+     * vrai ; override « granted » → vrai ; override « revoked » → faux ; sans
+     * override → rôle qui a le module par défaut.
+     *
      * @return \Illuminate\Support\Collection<int, User>
      */
     public static function usersWithModuleAccess(string $module, ?int $organisationId = null): \Illuminate\Support\Collection
     {
-        return User::with('organisations')->get()->filter(function (User $user) use ($module, $organisationId) {
-            if ($user->is_super_admin) {
-                return true;
-            }
+        $rolesAvecDefaut = collect(config('modules.role_defaults', []))
+            ->filter(fn (array $modules) => in_array($module, $modules, true))
+            ->keys()
+            ->all();
 
-            $organisations = $organisationId
-                ? $user->organisations->where('id', $organisationId)
-                : $user->organisations;
+        return User::query()
+            ->where(function ($q) use ($module, $rolesAvecDefaut, $organisationId) {
+                // Les super admins sont toujours inclus (visibilité plateforme).
+                $q->where('is_super_admin', true);
 
-            foreach ($organisations as $organisation) {
-                if ($organisation->pivot->is_active && self::canAccessModule($user, $module, $organisation->id)) {
-                    return true;
+                // ... ou membres actifs d'une organisation où ils ont accès au
+                // module : rôle admin, override accordé, ou (sans override) rôle
+                // qui a le module par défaut.
+                $q->orWhereHas('organisations', function ($appartenance) use ($module, $rolesAvecDefaut, $organisationId) {
+                    $appartenance->where('user_organisations.is_active', true);
+
+                    if ($organisationId !== null) {
+                        $appartenance->where('user_organisations.organisation_id', $organisationId);
+                    }
+
+                    $appartenance->where(function ($acces) use ($module, $rolesAvecDefaut) {
+                        $acces->where('user_organisations.role', 'admin');
+
+                        $acces->orWhereExists(function ($override) use ($module) {
+                            $override->from('user_module_permissions')
+                                ->whereColumn('user_module_permissions.user_id', 'users.id')
+                                ->whereColumn('user_module_permissions.organisation_id', 'user_organisations.organisation_id')
+                                ->where('user_module_permissions.module', $module)
+                                ->where('user_module_permissions.granted', true);
+                        });
+
+                        $acces->orWhere(function ($defaut) use ($module, $rolesAvecDefaut) {
+                            $defaut->whereNotExists(function ($override) use ($module) {
+                                $override->from('user_module_permissions')
+                                    ->whereColumn('user_module_permissions.user_id', 'users.id')
+                                    ->whereColumn('user_module_permissions.organisation_id', 'user_organisations.organisation_id')
+                                    ->where('user_module_permissions.module', $module);
+                            })->whereIn('user_organisations.role', $rolesAvecDefaut);
+                        });
+                    });
+                });
+            })
+            ->get();
+    }
+
+    /**
+     * Liste des modules accessibles à l'utilisateur dans son organisation courante,
+     * dans l'ordre de config('modules.list'). Version groupée de canAccessModule
+     * pour les props partagées Inertia : 2 requêtes au lieu de 2 par module
+     * (le menu partageait cette liste à CHAQUE requête HTTP).
+     *
+     * @return array<int, string>
+     */
+    public static function modulesAccessibles(User $user): array
+    {
+        $tous = array_keys(config('modules.list', []));
+
+        if ($user->is_super_admin) {
+            return $tous;
+        }
+
+        $organisationId = $user->getCurrentOrganisation()?->id;
+
+        if (!$organisationId) {
+            return [];
+        }
+
+        $role = $user->organisations()
+            ->where('organisations.id', $organisationId)
+            ->first()?->pivot->role;
+
+        if (!$role) {
+            return [];
+        }
+
+        if ($role === 'admin') {
+            return $tous;
+        }
+
+        $overrides = $user->modulePermissions()
+            ->where('organisation_id', $organisationId)
+            ->get(['module', 'granted'])
+            ->keyBy('module');
+
+        return array_values(array_filter(
+            $tous,
+            function (string $module) use ($overrides, $role) {
+                if ($overrides->has($module)) {
+                    return (bool) $overrides->get($module)->granted;
                 }
-            }
 
-            return false;
-        })->values();
+                return self::roleHasModuleDefault($role, $module);
+            }
+        ));
     }
 
     /**

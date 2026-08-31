@@ -58,10 +58,12 @@ class CoutEntretienController extends Controller
             $parEquipement[$key]['total'] += (float) $cout->montant;
         }
 
+        $cacheEquipements = [];
+
         foreach ($piecesParEquipement as $ligne) {
             $key = $ligne->equipementable_type . '#' . $ligne->equipementable_id;
             if (!isset($parEquipement[$key])) {
-                $equip = $ligne->equipementable_type::find($ligne->equipementable_id);
+                $equip = $this->equipementParClasse($ligne->equipementable_type, $ligne->equipementable_id, $cacheEquipements);
                 if (!$equip) {
                     continue;
                 }
@@ -157,8 +159,10 @@ class CoutEntretienController extends Controller
                 ], ';');
             }
 
+            $cacheEquipements = [];
+
             foreach ($piecesLignes as $ligne) {
-                $equip = $ligne->equipementable_type::find($ligne->equipementable_id);
+                $equip = $this->equipementParClasse($ligne->equipementable_type, $ligne->equipementable_id, $cacheEquipements);
                 $date = $ligne->date_fin ?? $ligne->date_planifiee;
 
                 fputcsv($handle, [
@@ -205,5 +209,22 @@ class CoutEntretienController extends Controller
             Vehicule::class => "{$equip->code} — {$equip->immatriculation}",
             default => "{$equip->code} — {$equip->designation}",
         };
+    }
+
+    /**
+     * Équipement par (classe, id) avec cache par requête : les agrégats par
+     * équipement (index) et l'export CSV faisaient un find() PAR LIGNE (N+1).
+     * Les requêtes passent par le modèle → cloisonnement organisation conservé
+     * (scope global BelongsToOrganisation).
+     *
+     * @param array<string, \Illuminate\Support\Collection> $cache
+     */
+    private function equipementParClasse(string $classe, int $id, array &$cache)
+    {
+        if (!isset($cache[$classe])) {
+            $cache[$classe] = $classe::get()->keyBy('id');
+        }
+
+        return $cache[$classe]->get($id);
     }
 }

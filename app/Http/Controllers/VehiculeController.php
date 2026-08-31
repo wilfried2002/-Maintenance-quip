@@ -4,33 +4,56 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\HandlesCoutsEntretien;
 use App\Http\Controllers\Concerns\HandlesDocuments;
+use App\Http\Controllers\Concerns\HandlesEquipementModule;
 use App\Http\Controllers\Concerns\HandlesEquipementStats;
 use App\Http\Controllers\Concerns\HandlesPhotoUpload;
 use App\Http\Controllers\Concerns\HandlesPieces;
 use App\Http\Controllers\Concerns\HandlesPlansMaintenance;
 use App\Models\Document;
 use App\Models\Fournisseur;
-use App\Models\Intervention;
-use App\Models\Piece;
-use App\Models\PlanMaintenance;
 use App\Models\Vehicule;
 use App\Services\ModuleDashboardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Parc automobile. Tout le comportement générique (dashboard, interventions, plans
+ * de maintenance, stock de pièces) vit dans le trait HandlesEquipementModule —
+ * ce contrôleur ne garde que la spécificité des véhicules (immatriculation,
+ * chauffeur, kilométrage...).
+ */
 class VehiculeController extends Controller
 {
-    use HandlesPhotoUpload, HandlesDocuments, HandlesPlansMaintenance, HandlesCoutsEntretien, HandlesEquipementStats, HandlesPieces;
+    use HandlesPhotoUpload, HandlesDocuments, HandlesPlansMaintenance, HandlesCoutsEntretien, HandlesEquipementStats, HandlesPieces, HandlesEquipementModule;
 
     private const MODULE = 'parc_automobile';
+
+    protected function equipementClasse(): string
+    {
+        return Vehicule::class;
+    }
+
+    protected function moduleKey(): string
+    {
+        return self::MODULE;
+    }
+
+    protected function viewDir(): string
+    {
+        return 'Vehicules';
+    }
+
+    protected function equipementsPourSelect()
+    {
+        return Vehicule::orderBy('immatriculation')->get(['id', 'code', 'immatriculation']);
+    }
 
     public function index(ModuleDashboardService $service): Response
     {
         $vehicules = Vehicule::with('chauffeur:id,name')->orderBy('immatriculation')->get();
-        
+
         // Ensure photo_url is always present in serialized data for Inertia
         // This guarantees photos persist after page refresh
         $vehicules->each(function ($vehicule) {
@@ -59,13 +82,6 @@ class VehiculeController extends Controller
         return Inertia::render('Vehicules/Show', [
             'vehicule' => $vehicule,
             'stats' => $this->equipementStats($vehicule, Vehicule::class),
-        ]);
-    }
-
-    public function dashboard(ModuleDashboardService $service): Response
-    {
-        return Inertia::render('Vehicules/Dashboard', [
-            'stats' => $service->calculer(Vehicule::class),
         ]);
     }
 
@@ -150,130 +166,5 @@ class VehiculeController extends Controller
         $this->destroyDocument($document, $vehicule);
 
         return back()->with('status', 'Document supprimé.');
-    }
-
-    public function interventionsIndex(): Response
-    {
-        return Inertia::render('Vehicules/Interventions', [
-            'interventions' => Intervention::query()
-                ->where('equipementable_type', Vehicule::class)
-                ->with(['equipementable', 'technicien', 'pieces'])
-                ->latest('date_planifiee')
-                ->get(),
-            'equipements' => Vehicule::orderBy('immatriculation')->get(['id', 'code', 'immatriculation']),
-            'techniciens' => $this->organisationUsers(),
-            'pieces' => $this->piecesForModule(self::MODULE),
-        ]);
-    }
-
-    public function piecesIndex(): Response
-    {
-        return Inertia::render('Vehicules/Pieces', [
-            'pieces' => $this->piecesForModule(self::MODULE),
-            'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
-        ]);
-    }
-
-    public function piecesStore(Request $request): RedirectResponse
-    {
-        return $this->storePieceForModule($request, self::MODULE);
-    }
-
-    public function piecesUpdate(Request $request, Piece $piece): RedirectResponse
-    {
-        return $this->updatePieceForModule($request, $piece, self::MODULE);
-    }
-
-    public function piecesDestroy(Piece $piece): RedirectResponse
-    {
-        return $this->destroyPieceForModule($piece, self::MODULE);
-    }
-
-    public function interventionsStore(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'equipementable_id' => ['required', 'exists:vehicules,id'],
-            'type_intervention' => ['required', 'in:preventive,corrective,predictive'],
-            'statut' => ['required', 'in:planifiee,en_cours,terminee,annulee'],
-            'priorite' => ['required', 'in:basse,normale,haute,critique'],
-            'date_planifiee' => ['nullable', 'date'],
-            'date_debut' => ['nullable', 'date'],
-            'date_fin' => ['nullable', 'date'],
-            'technicien_id' => ['nullable', 'exists:users,id'],
-            'titre' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'cout_main_oeuvre' => ['nullable', 'numeric'],
-            'duree_heures' => ['nullable', 'numeric'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        $intervention = Intervention::create([
-            ...$data,
-            'equipementable_type' => Vehicule::class,
-        ]);
-
-        $this->recordCoutMainOeuvre($intervention);
-
-        return back()->with('status', 'Intervention enregistrée.');
-    }
-
-    public function plansIndex(): Response
-    {
-        $plans = PlanMaintenance::query()
-            ->where('equipementable_type', Vehicule::class)
-            ->with('equipementable')
-            ->orderBy('operation')
-            ->get()
-            ->append(['prochaine_echeance', 'en_retard']);
-
-        return Inertia::render('Vehicules/Plans', [
-            'plans' => $plans,
-            'equipements' => Vehicule::orderBy('immatriculation')->get(['id', 'code', 'immatriculation']),
-        ]);
-    }
-
-    public function plansStore(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'equipementable_id' => ['required', 'exists:vehicules,id'],
-            ...$this->planValidationRules(),
-        ]);
-
-        PlanMaintenance::create([
-            ...$data,
-            'equipementable_type' => Vehicule::class,
-        ]);
-
-        return back()->with('status', 'Plan de maintenance enregistré.');
-    }
-
-    public function plansUpdate(Request $request, PlanMaintenance $plan): RedirectResponse
-    {
-        $data = $request->validate($this->planValidationRules());
-
-        $plan->update($data);
-
-        return back()->with('status', 'Plan de maintenance mis à jour.');
-    }
-
-    public function plansDestroy(PlanMaintenance $plan): RedirectResponse
-    {
-        $plan->delete();
-
-        return back()->with('status', 'Plan de maintenance supprimé.');
-    }
-
-    public function plansMarkExecuted(PlanMaintenance $plan): RedirectResponse
-    {
-        $this->markPlanExecuted($plan);
-
-        return back()->with('status', 'Exécution enregistrée, échéance réinitialisée.');
-    }
-
-    private function organisationUsers()
-    {
-        $organisation = Auth::user()->getCurrentOrganisation();
-
-        return $organisation ? $organisation->users()->get(['users.id', 'users.name']) : collect();
     }
 }

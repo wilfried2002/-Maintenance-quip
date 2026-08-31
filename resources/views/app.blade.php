@@ -11,17 +11,10 @@
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
 
-        <!-- Ancien thème SB Admin 2 : conservé le temps de la migration vers Materio
-             (voir plus bas) — encore utilisé par les pages/composants pas encore convertis. -->
-        <link href="/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
-        <link href="/vendor/sb-admin-2/sb-admin-2.scoped.css" rel="stylesheet">
-        <link href="/vendor/sb-admin-2/overrides.css" rel="stylesheet">
-
-        <!-- Thème Materio (Bootstrap 5) : nouveau système visuel, migration en cours page
-             par page. Chargé APRÈS Vite/SB Admin 2 pour que ses classes priment. Scopé via
-             .materio-item/.materio-page (scripts/scope-materio.mjs) pour ne jamais écraser
-             Tailwind sur les pages pas encore converties — même mécanisme que SB Admin 2. -->
+        <!-- Thème Materio (Bootstrap 5) : unique système visuel depuis la migration
+             page par page (SB Admin 2 / Font Awesome entièrement retirés, août 2026).
+             Scopé via .materio-item/.materio-page (scripts/scope-materio.mjs) pour ne
+             jamais écraser Tailwind, qui reste utilisé pour la grille et les utilitaires. -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />

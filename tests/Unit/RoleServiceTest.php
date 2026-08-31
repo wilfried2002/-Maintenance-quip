@@ -116,4 +116,47 @@ class RoleServiceTest extends TestCase
         $this->assertNotContains($magasinier->id, $ids);
         $this->assertNotContains($technicienInactif->id, $ids);
     }
+
+    /**
+     * La version groupée (2 requêtes) utilisée par les props partagées Inertia doit
+     * donner exactement le même résultat que canAccessModule module par module
+     * (~18 requêtes avant), overrides compris.
+     */
+    public function test_modules_accessibles_est_coherente_avec_can_access_module(): void
+    {
+        $org = $this->organisation();
+
+        $technicien = User::factory()->create();
+        $org->users()->attach($technicien->id, ['role' => 'technicien', 'is_active' => true]);
+
+        // Un override accordé au-delà du rôle, un révoqué en plein défaut.
+        UserModulePermission::create([
+            'user_id' => $technicien->id,
+            'organisation_id' => $org->id,
+            'module' => 'fournisseurs',
+            'granted' => true,
+        ]);
+        UserModulePermission::create([
+            'user_id' => $technicien->id,
+            'organisation_id' => $org->id,
+            'module' => 'parc_automobile',
+            'granted' => false,
+        ]);
+
+        $this->actingAs($technicien)->withSession(['current_organisation_id' => $org->id]);
+
+        $attendu = array_values(array_filter(
+            array_keys(config('modules.list')),
+            fn (string $module) => $technicien->hasModuleAccess($module)
+        ));
+
+        $this->assertSame($attendu, array_values(RoleService::modulesAccessibles($technicien)));
+
+        // Le super admin voit tout, sans organisation courante.
+        $superAdmin = User::factory()->create(['is_super_admin' => true]);
+        $this->assertSame(
+            array_keys(config('modules.list')),
+            array_values(RoleService::modulesAccessibles($superAdmin))
+        );
+    }
 }

@@ -1,59 +1,82 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Maintenance Équip — GMAO multi-organisations
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Application de **gestion de maintenance assistée par ordinateur** (GMAO) multi-tenant :
+équipements industriels, parc automobile et équipement de bureau — interventions,
+maintenance préventive, stock de pièces, coûts d'entretien et indicateurs de performance.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Backend** : Laravel 12 (PHP ≥ 8.2), MySQL (SQLite pour les tests), queues/session en base
+- **Frontend** : Inertia 2 + Vue 3 + Tailwind CSS + template Materio (Bootstrap 5 scopé)
+- **PDF** : barryvdh/laravel-dompdf · **Recherche** : Ziggy + axios
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Fonctionnalités
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Domaine | Détail |
+|---|---|
+| **Multi-organisation (SaaS)** | Code organisation à la connexion, cloisonnement strict des données par scope global Eloquent (`BelongsToOrganisation`), devise par organisation |
+| **Rôles** (7) | admin, responsable maintenance, technicien, magasinier, responsable parc, superviseur, user — + **permissions fines par module** (grille Accordé/Révoqué dans la page Utilisateurs) |
+| **3 modules équipement** | Fiche complète (photo, criticité, garantie, fournisseur, documents PDF/photos) + tableau de bord par module |
+| **Interventions** | Préventive/corrective/prédictive, statuts, priorités, technicien, consommation de pièces (prix figé, restitution au stock), notes terrain, **rapport PDF** |
+| **Maintenance préventive** | Plans par jours ou kilométrage, génération automatique des interventions dues (cron), détection des retards |
+| **Stock de pièces** | Cloisonné par module, seuil d'alerte, notifications stock bas (base + e-mail), indicateurs : taux de défaillance, durée de vie moyenne, coût total |
+| **Coûts** | Main d'œuvre journalisée automatiquement, prestations externes, agrégats par type/équipement, **export CSV** (Excel) |
+| **Notifications** | Alertes plans en retard et stock bas, auto-résolution, horodatage relatif |
+| **Recherche globale** | Équipements, interventions, pièces — respecte les permissions par module |
 
-## Learning Laravel
+## Installation (développement)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+composer install
+cp .env.example .env        # puis renseigner la base MySQL
+php artisan key:generate
+php artisan migrate --seed  # crée le super admin + une organisation de démo
+npm install && npm run build
+php artisan serve
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Comptes du seeder : `admin@maintenance.local` (super admin, sans code) et
+`admin.org@maintenance.local` / `parc@maintenance.local` (code `DEMO01`).
 
-## Laravel Sponsors
+### Développement continu
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+composer dev   # serveur + queue + logs + Vite en parallèle
+composer test  # suite PHPUnit (SQLite en mémoire)
+```
 
-### Premium Partners
+## Tâches planifiées (obligatoire en production)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1
+```
 
-## Contributing
+Sans cron : pas de génération de maintenance préventive (`maintenance:generate`,
+quotidien), pas d'alertes stock bas / plans en retard (`alertes:generer`, horaire),
+pas de recalcul des indicateurs (`indicateurs:calculer`, quotidien).
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Sécurité — points clés
 
-## Code of Conduct
+- Cloisonnement SaaS par **scope global** au niveau du modèle (anti-IDOR, testé bout en bout)
+- Fichiers métier (photos, documents) sur **disque privé**, servis par une route authentifiée
+  qui vérifie organisation + module (`/fichiers/...`)
+- `is_super_admin` non mass-assignable ; connexion à session unique ; rate limiting login
+- Voir `DEPLOYMENT_CHECKLIST.md` pour la checklist production complète (APP_DEBUG,
+  SESSION_SECURE_COOKIE, SMTP, `fichiers:prive`, etc.)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Tests
 
-## Security Vulnerabilities
+```bash
+composer test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Couverture notable : isolation multi-organisation (IDOR), middleware de rôles,
+permissions par module, accès aux fichiers privés, accès aux interventions,
+consommation de pièces (verrou de stock), alertes, recherche, auth (inscription
+à activation comprise).
 
-## License
+## Déploiement
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Consulter **`DEPLOYMENT_CHECKLIST.md`** (checklist sécurité + script type) et
+**`DEPLOYMENT_STORAGE.md`** (stockage, permissions, symlink). Gabarit `.env` :
+**`.env.production.example`**.
