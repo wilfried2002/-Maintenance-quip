@@ -6,10 +6,10 @@ import ModuleNavTiles from '@/Components/ModuleNavTiles.vue';
 import { themes } from '@/moduleTheme';
 
 defineProps({
-    interventions: { type: Array, required: true },
-    equipements: { type: Array, required: true },
+    interventions: { type: [Array, Object], required: true },
+    equipements: { type: [Array, Object], required: true },
     techniciens: { type: Array, required: true },
-    pieces: { type: Array, required: true },
+    pieces: { type: [Array, Object], required: true },
 });
 
 const t = themes.orange;

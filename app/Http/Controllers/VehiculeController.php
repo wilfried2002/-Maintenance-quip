@@ -50,14 +50,32 @@ class VehiculeController extends Controller
         return Vehicule::orderBy('immatriculation')->get(['id', 'code', 'immatriculation']);
     }
 
-    public function index(ModuleDashboardService $service): Response
+    public function index(Request $request, ModuleDashboardService $service): Response
     {
-        $vehicules = Vehicule::with('chauffeur:id,name')->orderBy('immatriculation')->get();
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['code', 'immatriculation', 'marque', 'statut', 'criticite'],
+            'immatriculation',
+            'asc'
+        );
 
-        // Ensure photo_url is always present in serialized data for Inertia
-        // This guarantees photos persist after page refresh
-        $vehicules->each(function ($vehicule) {
+        $recherche = $this->termeRecherche($request);
+
+        $vehicules = Vehicule::with('chauffeur:id,name')
+            ->when($recherche !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('code', 'like', "%{$recherche}%")
+                ->orWhere('immatriculation', 'like', "%{$recherche}%")
+                ->orWhere('marque', 'like', "%{$recherche}%")))
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+
+        // photo_url toujours présent dans les données sérialisées pour Inertia
+        // (garantit l'affichage des photos après rafraîchissement).
+        $vehicules->through(function ($vehicule) {
             $vehicule->photo_url = $vehicule->getPhotoUrlAttribute();
+
+            return $vehicule;
         });
 
         return Inertia::render('Vehicules/Index', [

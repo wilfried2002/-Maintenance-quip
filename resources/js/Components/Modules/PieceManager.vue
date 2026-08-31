@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { themes } from '@/moduleTheme';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -18,6 +18,12 @@ const props = defineProps({
 });
 
 const t = themes[props.theme] ?? themes.slate;
+
+// Liste paginée côté serveur (paginator Laravel) — compat tableau conservée.
+const piecesRows = computed(() =>
+    Array.isArray(props.pieces) ? props.pieces : (props.pieces?.data ?? []));
+const piecesPaginees = computed(() =>
+    Array.isArray(props.pieces) ? null : props.pieces);
 
 // Pré-remplit la recherche du DataTable quand on arrive depuis un résultat de la
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
@@ -259,7 +265,9 @@ function enSousStock(piece) {
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="pieces"
+            :rows="piecesRows"
+            :paginated="piecesPaginees"
+            rows-key="pieces"
             :initial-search="initialSearch"
             search-placeholder="Rechercher une pièce…"
             empty-text="Aucune pièce enregistrée."

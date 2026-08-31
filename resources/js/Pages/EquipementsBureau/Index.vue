@@ -10,7 +10,7 @@ import { themes, statutOptions, criticiteOptions } from '@/moduleTheme';
 import { formatMontant, symboleDevise } from '@/currency';
 
 const props = defineProps({
-    equipements: { type: Array, required: true },
+    equipements: { type: [Array, Object], required: true },
     fournisseurs: { type: Array, required: true },
     stats: { type: Object, required: true },
 });

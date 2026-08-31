@@ -16,15 +16,28 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CoutEntretienController extends Controller
 {
+    use Concerns\HandlesPagination;
+
     private const TYPES = [
         'industriel' => EquipementIndustriel::class,
         'vehicule' => Vehicule::class,
         'bureau' => EquipementBureau::class,
     ];
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $couts = CoutEntretien::with('equipementable')->orderByDesc('date')->get();
+        // Journal paginé côté serveur (recherche/tri/page) — le journal complet en
+        // mémoire ne tenait pas à l'échelle ; les totaux et le regroupement par
+        // équipement sont des agrégats SQL, indépendants de la page affichée.
+        [$tri, $sens, $parPage] = $this->parametresTri($request, ['date', 'montant', 'type_cout'], 'date');
+
+        $recherche = $this->termeRecherche($request);
+
+        $couts = CoutEntretien::with('equipementable')
+            ->when($recherche !== '', fn ($q) => $q->where('description', 'like', "%{$recherche}%"))
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
 
         // Le coût des pièces n'est pas dupliqué dans couts_entretien (voir
         // HandlesCoutsEntretien) : il est calculé à la volée depuis intervention_pieces,
@@ -40,42 +53,51 @@ class CoutEntretienController extends Controller
             ->groupBy('interventions.equipementable_type', 'interventions.equipementable_id')
             ->get();
 
+        // Totaux par type : agrégat SQL sur toute la table (pas seulement la page).
+        $totauxCouts = CoutEntretien::query()
+            ->select('type_cout', DB::raw('SUM(montant) as total'))
+            ->groupBy('type_cout')
+            ->pluck('total', 'type_cout');
+
         $totalParType = [
-            'main_oeuvre' => (float) $couts->where('type_cout', 'main_oeuvre')->sum('montant'),
+            'main_oeuvre' => (float) ($totauxCouts['main_oeuvre'] ?? 0),
             'pieces' => (float) $piecesParEquipement->sum('total'),
-            'prestation_externe' => (float) $couts->where('type_cout', 'prestation_externe')->sum('montant'),
-            'autre' => (float) $couts->where('type_cout', 'autre')->sum('montant'),
+            'prestation_externe' => (float) ($totauxCouts['prestation_externe'] ?? 0),
+            'autre' => (float) ($totauxCouts['autre'] ?? 0),
         ];
 
+        // Regroupement par équipement : agrégat SQL également.
         $parEquipement = [];
 
-        foreach ($couts as $cout) {
-            if (!$cout->equipementable) {
-                continue;
-            }
-            $key = $cout->equipementable_type . '#' . $cout->equipementable_id;
-            $parEquipement[$key] ??= ['label' => $this->labelPourEquipement($cout->equipementable), 'total' => 0];
-            $parEquipement[$key]['total'] += (float) $cout->montant;
-        }
+        $coutsParEquipement = CoutEntretien::query()
+            ->select('equipementable_type', 'equipementable_id', DB::raw('SUM(montant) as total'))
+            ->groupBy('equipementable_type', 'equipementable_id')
+            ->get();
 
         $cacheEquipements = [];
 
-        foreach ($piecesParEquipement as $ligne) {
+        foreach ([...$coutsParEquipement, ...$piecesParEquipement] as $ligne) {
             $key = $ligne->equipementable_type . '#' . $ligne->equipementable_id;
-            if (!isset($parEquipement[$key])) {
+            $parEquipement[$key] ??= ['label' => null, 'total' => 0];
+
+            if ($parEquipement[$key]['label'] === null) {
                 $equip = $this->equipementParClasse($ligne->equipementable_type, $ligne->equipementable_id, $cacheEquipements);
                 if (!$equip) {
                     continue;
                 }
-                $parEquipement[$key] = ['label' => $this->labelPourEquipement($equip), 'total' => 0];
+                $parEquipement[$key]['label'] = $this->labelPourEquipement($equip);
             }
+
             $parEquipement[$key]['total'] += (float) $ligne->total;
         }
 
-        $parEquipement = collect($parEquipement)->sortByDesc('total')->values();
+        $parEquipement = collect($parEquipement)
+            ->filter(fn ($ligne) => $ligne['label'] !== null)
+            ->sortByDesc('total')
+            ->values();
 
         return Inertia::render('Couts/Index', [
-            'couts' => $couts->values(),
+            'couts' => $couts,
             'totalParType' => $totalParType,
             'totalGeneral' => array_sum($totalParType),
             'parEquipement' => $parEquipement,

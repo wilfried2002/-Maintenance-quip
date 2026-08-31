@@ -36,6 +36,31 @@ trait HandlesPieces
         return Piece::where('module', $module)->orderBy('designation')->get();
     }
 
+    /**
+     * Version paginée pour la page de gestion du stock du module (recherche,
+     * tri sur liste blanche, page) — la liste complète reste utilisée pour les
+     * listes déroulates (consommation sur intervention, ...).
+     */
+    protected function piecesPagineesPourModule(string $module, Request $request)
+    {
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['designation', 'reference', 'categorie', 'stock_qte', 'stock_min', 'prix_unitaire_moyen'],
+            'designation',
+            'asc'
+        );
+
+        $recherche = $this->termeRecherche($request);
+
+        return Piece::where('module', $module)
+            ->when($recherche !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('reference', 'like', "%{$recherche}%")
+                ->orWhere('designation', 'like', "%{$recherche}%")))
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+    }
+
     protected function storePieceForModule(Request $request, string $module): RedirectResponse
     {
         $data = $request->validate([

@@ -8,18 +8,26 @@ import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
     theme: { type: String, required: true },
-    items: { type: Array, required: true },
+    items: { type: [Array, Object], required: true },
     fields: { type: Array, required: true },
     storeUrl: { type: String, required: true },
     updateUrlBase: { type: String, required: true },
     destroyUrlBase: { type: String, required: true },
     showUrlBase: { type: String, required: true },
     itemLabel: { type: Function, required: true },
+    // Nom du prop de page rafraîchi par la pagination serveur (only:)
+    rowsKey: { type: String, default: 'equipements' },
     showFormBlock: { type: Boolean, default: true },
     showTable: { type: Boolean, default: true },
 });
 
 const t = themes[props.theme] ?? themes.slate;
+
+// Liste paginée côté serveur (paginator Laravel) — compat tableau conservée.
+const itemsRows = computed(() =>
+    Array.isArray(props.items) ? props.items : (props.items?.data ?? []));
+const itemsPaginees = computed(() =>
+    Array.isArray(props.items) ? null : props.items);
 
 const showForm = ref(false);
 const editingId = ref(null);
@@ -210,7 +218,9 @@ const columns = computed(() => [
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="items"
+            :rows="itemsRows"
+            :paginated="itemsPaginees"
+            :rows-key="rowsKey"
             search-placeholder="Rechercher un enregistrement…"
             empty-text="Aucun enregistrement pour le moment."
         >

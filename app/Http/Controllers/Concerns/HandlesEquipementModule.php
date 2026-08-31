@@ -21,10 +21,13 @@ use Inertia\Response;
  * est propre (validation spécifique au type d'équipement, photo, relations chargées).
  *
  * Nécessite les traits HandlesPieces / HandlesPlansMaintenance /
- * HandlesCoutsEntretien / HandlesEquipementStats (déjà utilisés par les contrôleurs).
+ * HandlesCoutsEntretien / HandlesEquipementStats / HandlesPagination (déjà
+ * utilisés par les contrôleurs).
  */
 trait HandlesEquipementModule
 {
+    use HandlesPagination;
+
     /** Classe du modèle équipement géré (ex. App\Models\Vehicule). */
     abstract protected function equipementClasse(): string;
 
@@ -44,14 +47,29 @@ trait HandlesEquipementModule
         ]);
     }
 
-    public function interventionsIndex(): Response
+    public function interventionsIndex(Request $request): Response
     {
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['date_planifiee', 'titre', 'statut', 'priorite', 'created_at'],
+            'date_planifiee'
+        );
+
+        $recherche = $this->termeRecherche($request);
+        $statut = (string) $request->query('statut', '');
+        $statutsValides = ['planifiee', 'en_cours', 'terminee', 'annulee'];
+
+        $interventions = Intervention::query()
+            ->where('equipementable_type', $this->equipementClasse())
+            ->when($recherche !== '', fn ($q) => $q->where('titre', 'like', "%{$recherche}%"))
+            ->when(in_array($statut, $statutsValides, true), fn ($q) => $q->where('statut', $statut))
+            ->with(['equipementable', 'technicien', 'pieces'])
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+
         return Inertia::render($this->viewDir().'/Interventions', [
-            'interventions' => Intervention::query()
-                ->where('equipementable_type', $this->equipementClasse())
-                ->with(['equipementable', 'technicien', 'pieces'])
-                ->latest('date_planifiee')
-                ->get(),
+            'interventions' => $interventions,
             'equipements' => $this->equipementsPourSelect(),
             'techniciens' => $this->organisationUsers(),
             'pieces' => $this->piecesForModule($this->moduleKey()),
@@ -88,14 +106,27 @@ trait HandlesEquipementModule
         return back()->with('status', 'Intervention enregistrée.');
     }
 
-    public function plansIndex(): Response
+    public function plansIndex(Request $request): Response
     {
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['operation', 'frequence_valeur', 'derniere_execution_date', 'created_at'],
+            'operation',
+            'asc'
+        );
+
+        $recherche = $this->termeRecherche($request);
+
         $plans = PlanMaintenance::query()
             ->where('equipementable_type', $this->equipementClasse())
+            ->when($recherche !== '', fn ($q) => $q->where('operation', 'like', "%{$recherche}%"))
             ->with('equipementable')
-            ->orderBy('operation')
-            ->get()
-            ->append(['prochaine_echeance', 'en_retard']);
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+
+        // Attributs calculés (prochaine échéance / retard) sur la page courante.
+        $plans->getCollection()->each->append(['prochaine_echeance', 'en_retard']);
 
         return Inertia::render($this->viewDir().'/Plans', [
             'plans' => $plans,
@@ -143,10 +174,10 @@ trait HandlesEquipementModule
         return back()->with('status', 'Exécution enregistrée, échéance réinitialisée.');
     }
 
-    public function piecesIndex(): Response
+    public function piecesIndex(Request $request): Response
     {
         return Inertia::render($this->viewDir().'/Pieces', [
-            'pieces' => $this->piecesForModule($this->moduleKey()),
+            'pieces' => $this->piecesPagineesPourModule($this->moduleKey(), $request),
             'fournisseurs' => Fournisseur::orderBy('nom')->get(['id', 'nom']),
         ]);
     }

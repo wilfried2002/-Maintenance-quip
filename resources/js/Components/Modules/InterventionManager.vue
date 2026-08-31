@@ -26,6 +26,14 @@ const page = usePage();
 const devise = page.props.auth.devise;
 const isAdmin = computed(() => page.props.auth.role === 'admin' || page.props.auth.isSuperAdmin);
 
+// Liste paginée côté serveur : le contrôleur envoie un paginator Laravel
+// ({data, current_page, last_page, total}) — on garde la compatibilité tableau
+// simple pour les usages internes (dashboard, preview).
+const interventionsRows = computed(() =>
+    Array.isArray(props.interventions) ? props.interventions : (props.interventions?.data ?? []));
+const interventionsPaginees = computed(() =>
+    Array.isArray(props.interventions) ? null : props.interventions);
+
 // Pré-remplit la recherche du DataTable quand on arrive depuis un résultat de la
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
 const initialSearch = new URLSearchParams(window.location.search).get('q') ?? '';
@@ -284,7 +292,9 @@ function statutLabel(value) {
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="interventions"
+            :rows="interventionsRows"
+            :paginated="interventionsPaginees"
+            rows-key="interventions"
             expandable
             :initial-search="initialSearch"
             search-placeholder="Rechercher une intervention…"

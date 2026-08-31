@@ -49,14 +49,30 @@ class EquipementBureauController extends Controller
         return EquipementBureau::orderBy('designation')->get(['id', 'code', 'designation']);
     }
 
-    public function index(ModuleDashboardService $service): Response
+    public function index(Request $request, ModuleDashboardService $service): Response
     {
-        $equipements = EquipementBureau::orderBy('designation')->get();
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['code', 'designation', 'categorie', 'marque', 'statut', 'criticite'],
+            'designation',
+            'asc'
+        );
 
-        // Ensure photo_url is always present in serialized data for Inertia
-        // This guarantees photos persist after page refresh
-        $equipements->each(function ($equipement) {
+        $recherche = $this->termeRecherche($request);
+
+        $equipements = EquipementBureau::query()
+            ->when($recherche !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('code', 'like', "%{$recherche}%")
+                ->orWhere('designation', 'like', "%{$recherche}%")))
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+
+        // photo_url toujours présent dans les données sérialisées pour Inertia.
+        $equipements->through(function ($equipement) {
             $equipement->photo_url = $equipement->getPhotoUrlAttribute();
+
+            return $equipement;
         });
 
         return Inertia::render('EquipementsBureau/Index', [

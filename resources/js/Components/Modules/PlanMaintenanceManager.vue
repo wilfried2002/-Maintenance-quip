@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { themes } from '@/moduleTheme';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -21,6 +21,12 @@ const props = defineProps({
 });
 
 const t = themes[props.theme] ?? themes.slate;
+
+// Liste paginée côté serveur (paginator Laravel) — compat tableau conservée.
+const plansRows = computed(() =>
+    Array.isArray(props.plans) ? props.plans : (props.plans?.data ?? []));
+const plansPaginees = computed(() =>
+    Array.isArray(props.plans) ? null : props.plans);
 
 const showForm = ref(false);
 const editingId = ref(null);
@@ -107,7 +113,8 @@ const columns = [
     { key: 'equipementable', label: 'Équipement', sortable: false },
     { key: 'operation', label: 'Opération' },
     { key: 'frequence_valeur', label: 'Fréquence' },
-    { key: 'prochaine_echeance', label: 'Échéance' },
+    // Attribut calculé côté PHP : non triable en base.
+    { key: 'prochaine_echeance', label: 'Échéance', sortable: false },
     { key: 'actif', label: 'Statut', sortable: false },
 ];
 </script>
@@ -215,7 +222,9 @@ const columns = [
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="plans"
+            :rows="plansRows"
+            :paginated="plansPaginees"
+            rows-key="plans"
             search-placeholder="Rechercher un plan…"
             empty-text="Aucun plan de maintenance préventive."
         >
