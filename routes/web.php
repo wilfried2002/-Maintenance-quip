@@ -11,6 +11,7 @@ use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\InterventionRapportController;
 use App\Http\Controllers\ActiviteController;
 use App\Http\Controllers\CorbeilleController;
+use App\Http\Controllers\DemandeInterventionController;
 use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganisationController;
@@ -193,6 +194,22 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
         Route::post('/corbeille/{type}/{id}/restore', [CorbeilleController::class, 'restore'])->name('corbeille.restore');
         Route::delete('/corbeille/{type}/{id}', [CorbeilleController::class, 'destroy'])->name('corbeille.destroy');
     });
+
+    // Demandes d'intervention des utilisateurs finaux + workflow de validation.
+    Route::get('/mes-demandes', [DemandeInterventionController::class, 'mesDemandes'])->name('demandes.mes');
+    Route::post('/demandes', [DemandeInterventionController::class, 'store'])->name('demandes.store');
+
+    // Traitement des demandes : réservé à ceux qui accèdent à au moins un module
+    // (le filtrage fin par module est fait dans le contrôleur).
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc,admin')
+        ->group(function () {
+            Route::get('/demandes', [DemandeInterventionController::class, 'index'])->name('demandes.index');
+            Route::post('/demandes/{demande}/decision', [DemandeInterventionController::class, 'decision'])->name('demandes.decision');
+            Route::post('/demandes/{demande}/convertir', [DemandeInterventionController::class, 'convertir'])->name('demandes.convertir');
+        });
+
+    // Planning/calendrier des interventions des modules accessibles.
+    Route::get('/calendrier', [DemandeInterventionController::class, 'calendrier'])->name('calendrier.index');
 
     // Journal des mouvements de stock (entrées/sorties/ajustements) : union des rôles
     // des stocks ici, le contrôle fin par module est fait dans le contrôleur

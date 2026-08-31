@@ -115,8 +115,30 @@ const year = new Date().getFullYear();
                         </li>
                     </template>
 
+                    <li class="materio-item menu-header mt-5">
+                        <span class="materio-item menu-header-text">Interventions</span>
+                    </li>
+                    <li class="materio-item menu-item" :class="{ active: route().current('demandes.mes') || route().current('demandes.index') }">
+                        <Link class="materio-item menu-link" :href="route('demandes.mes')">
+                            <i class="materio-item menu-icon icon-base ri ri-mail-send-line"></i>
+                            <div>Mes demandes</div>
+                        </Link>
+                    </li>
+                    <li v-if="(page.props.auth.accessibleModules ?? []).length > 0" class="materio-item menu-item" :class="{ active: route().current('demandes.index') }">
+                        <Link class="materio-item menu-link" :href="route('demandes.index')">
+                            <i class="materio-item menu-icon icon-base ri ri-inbox-unarchive-line"></i>
+                            <div>Demandes à traiter</div>
+                        </Link>
+                    </li>
+                    <li v-if="(page.props.auth.accessibleModules ?? []).length > 0" class="materio-item menu-item" :class="{ active: isActive('calendrier.index') }">
+                        <Link class="materio-item menu-link" :href="route('calendrier.index')">
+                            <i class="materio-item menu-icon icon-base ri ri-calendar-2-line"></i>
+                            <div>Calendrier</div>
+                        </Link>
+                    </li>
+
                     <li v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin" class="materio-item menu-header mt-5">
-                        <span class="materio-item menu-header-text">Administration</span>
+                        <span class="materio-item menu-header-text">Traçabilité</span>
                     </li>
                     <template v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin">
                         <li class="materio-item menu-item" :class="{ active: isActive('activites.index') }">

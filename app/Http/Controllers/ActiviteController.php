@@ -26,6 +26,7 @@ class ActiviteController extends Controller
         \App\Models\Fournisseur::class => 'Fournisseur',
         \App\Models\CoutEntretien::class => 'Coût d\'entretien',
         \App\Models\MouvementStock::class => 'Mouvement de stock',
+        \App\Models\DemandeIntervention::class => 'Demande d\'intervention',
     ];
 
     public function index(Request $request): Response
