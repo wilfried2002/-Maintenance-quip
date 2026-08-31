@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Intervention;
 use App\Services\IndicateurPerformanceCalculator;
+use App\Services\RoleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,15 @@ class InterventionController extends Controller
      */
     public function updateNotes(Request $request, Intervention $intervention): RedirectResponse
     {
+        // Notes accessibles uniquement aux rôles du module de L'ÉQUIPEMENT de
+        // l'intervention (le check.role de la route ne voit que l'union des rôles
+        // des 3 modules, l'URL ne portant pas de préfixe de module).
+        abort_unless(
+            RoleService::peutAccederIntervention($request->user(), $intervention),
+            403,
+            'Vous n\'avez pas accès au module de l\'équipement concerné par cette intervention.'
+        );
+
         $data = $request->validate([
             'notes' => ['nullable', 'string'],
         ]);

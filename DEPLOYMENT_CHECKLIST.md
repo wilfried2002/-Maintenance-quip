@@ -225,6 +225,32 @@ DEPLOYMENT_CHECKLIST.md                       [NOUVEAU] Cette checklist
 
 ---
 
+## Sécurité & configuration production (août 2026)
+
+Gabarit prêt à l'emploi : **`.env.production.example`** (copier vers `.env` puis `php artisan key:generate`).
+
+### Valeurs non négociables avant la mise en ligne
+
+- [ ] `APP_ENV=production` et **`APP_DEBUG=false`** — le mode debug expose la configuration, les chemins du serveur et des fragments du `.env` dans les pages d'erreur.
+- [ ] **`SESSION_SECURE_COOKIE=true`** — le site doit être servi en HTTPS ; le cookie de session ne doit jamais circuler en HTTP clair.
+- [ ] **SMTP réel (`MAIL_MAILER=smtp` + identifiants)** — OBLIGATOIRE : la vérification d'e-mail bloque l'accès tant qu'elle n'est pas faite. Avec `MAIL_MAILER=log`, aucun nouveau compte ne peut vérifier son adresse → connexion impossible.
+- [ ] **Cron du planificateur** (sans lui, la maintenance préventive, les alertes stock/retard et les indicateurs ne se déclenchent jamais) :
+  ```
+  * * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1
+  ```
+- [ ] `php artisan migrate --force` (applique notamment le cloisonnement `organisation_id` de la table `documents`).
+- [ ] `php artisan storage:ensure-link` puis `chown -R www-data:www-data storage bootstrap/cache`.
+- [ ] `php artisan config:cache && php artisan route:cache` après tout changement de `.env`.
+
+### Durcissement applicatif appliqué (voir git log)
+
+- Suppression de documents : vérification d'appartenance à l'équipement + cloisonnement par organisation (scope global sur `App\Models\Document`) — corrige une IDOR inter-organisations.
+- Routes `/interventions/*` (consommation de pièces, rapport PDF, notes) : filtrage par rôle **et** par module de l'équipement concerné (`App\Services\RoleService`).
+- `is_super_admin` retiré du `$fillable` de `User` (anti mass-assignment).
+
+
+---
+
 **Status** : ✅ COMPLÉTÉ ET TESTÉ
 **Prêt pour production** : ✅ OUI
 **Nécessite actions supplémentaires** : ❌ NON

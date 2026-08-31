@@ -147,7 +147,7 @@ class VehiculeController extends Controller
 
     public function documentsDestroy(Vehicule $vehicule, Document $document): RedirectResponse
     {
-        $this->destroyDocument($document);
+        $this->destroyDocument($document, $vehicule);
 
         return back()->with('status', 'Document supprimé.');
     }

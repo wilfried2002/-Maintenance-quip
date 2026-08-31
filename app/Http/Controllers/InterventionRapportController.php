@@ -4,13 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\Intervention;
 use App\Models\Vehicule;
+use App\Services\RoleService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class InterventionRapportController extends Controller
 {
-    public function show(Intervention $intervention): Response
+    public function show(Request $request, Intervention $intervention): Response
     {
+        // Rapport accessible uniquement aux rôles du module de L'ÉQUIPEMENT de
+        // l'intervention (le check.role de la route ne voit que l'union des rôles
+        // des 3 modules, l'URL ne portant pas de préfixe de module).
+        abort_unless(
+            RoleService::peutAccederIntervention($request->user(), $intervention),
+            403,
+            'Vous n\'avez pas accès au module de l\'équipement concerné par cette intervention.'
+        );
+
         $intervention->load(['equipementable', 'technicien', 'pieces', 'planMaintenance', 'organisation']);
 
         $equipement = $intervention->equipementable;

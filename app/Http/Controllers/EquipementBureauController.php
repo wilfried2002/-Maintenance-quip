@@ -143,7 +143,7 @@ class EquipementBureauController extends Controller
 
     public function documentsDestroy(EquipementBureau $equipementBureau, Document $document): RedirectResponse
     {
-        $this->destroyDocument($document);
+        $this->destroyDocument($document, $equipementBureau);
 
         return back()->with('status', 'Document supprimé.');
     }

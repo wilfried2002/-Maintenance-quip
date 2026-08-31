@@ -148,7 +148,7 @@ class EquipementIndustrielController extends Controller
 
     public function documentsDestroy(EquipementIndustriel $equipementIndustriel, Document $document): RedirectResponse
     {
-        $this->destroyDocument($document);
+        $this->destroyDocument($document, $equipementIndustriel);
 
         return back()->with('status', 'Document supprimé.');
     }

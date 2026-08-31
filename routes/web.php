@@ -118,16 +118,6 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::delete('/{vehicule}/documents/{document}', [VehiculeController::class, 'documentsDestroy'])->name('documents.destroy');
         });
 
-    Route::middleware('check.role:responsable_maintenance,technicien,responsable_parc,magasinier')
-        ->prefix('vehicules/pieces')
-        ->name('vehicules.pieces.')
-        ->group(function () {
-            Route::get('/', [VehiculeController::class, 'piecesIndex'])->name('index');
-            Route::post('/', [VehiculeController::class, 'piecesStore'])->name('store');
-            Route::put('/{piece}', [VehiculeController::class, 'piecesUpdate'])->name('update');
-            Route::delete('/{piece}', [VehiculeController::class, 'piecesDestroy'])->name('destroy');
-        });
-
     Route::middleware('check.role:responsable_maintenance,technicien,magasinier')
         ->prefix('equipements-bureau/pieces')
         ->name('equipements-bureau.pieces.')
@@ -186,10 +176,24 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
 
     // Consommation de pièces sur une intervention : commun aux 3 modules équipement
     // (la table interventions est unique, indépendante du préfixe qui l'a créée).
-    Route::post('/interventions/{intervention}/pieces', [PieceConsumptionController::class, 'store'])->name('interventions.pieces.store');
-    Route::delete('/interventions/{intervention}/pieces/{interventionPiece}', [PieceConsumptionController::class, 'destroy'])->name('interventions.pieces.destroy');
-    Route::get('/interventions/{intervention}/rapport', [InterventionRapportController::class, 'show'])->name('interventions.rapport');
-    Route::put('/interventions/{intervention}/notes', [InterventionController::class, 'updateNotes'])->name('interventions.notes.update');
+    // Le module concerné dépend de l'ÉQUIPEMENT de l'intervention, pas du préfixe de
+    // l'URL : le middleware ci-dessous ne filtre que l'union des rôles des 3 stocks,
+    // le contrôle fin par module est fait dans le contrôleur
+    // (RoleService::peutConsommerPiecesIntervention).
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc')
+        ->group(function () {
+            Route::post('/interventions/{intervention}/pieces', [PieceConsumptionController::class, 'store'])->name('interventions.pieces.store');
+            Route::delete('/interventions/{intervention}/pieces/{interventionPiece}', [PieceConsumptionController::class, 'destroy'])->name('interventions.pieces.destroy');
+        });
+
+    // Rapport PDF et notes de terrain : même principe — union des rôles des 3 modules
+    // équipement ici, le contrôle du module réel de l'intervention (celui de son
+    // équipement) est fait dans le contrôleur (RoleService::peutAccederIntervention).
+    Route::middleware('check.role:responsable_maintenance,technicien,responsable_parc,superviseur,user')
+        ->group(function () {
+            Route::get('/interventions/{intervention}/rapport', [InterventionRapportController::class, 'show'])->name('interventions.rapport');
+            Route::put('/interventions/{intervention}/notes', [InterventionController::class, 'updateNotes'])->name('interventions.notes.update');
+        });
     Route::middleware('check.role:admin')->group(function () {
         Route::put('/interventions/{intervention}', [InterventionController::class, 'update'])->name('interventions.update');
         Route::delete('/interventions/{intervention}', [InterventionController::class, 'destroy'])->name('interventions.destroy');
