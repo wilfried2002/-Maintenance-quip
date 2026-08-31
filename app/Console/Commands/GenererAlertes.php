@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Piece;
 use App\Models\PlanMaintenance;
 use App\Models\User;
+use App\Notifications\GarantieExpiree;
 use App\Notifications\PlanMaintenanceEnRetard;
 use App\Notifications\StockBas;
 use App\Services\RoleService;
@@ -21,8 +22,9 @@ class GenererAlertes extends Command
     {
         $plansCount = $this->genererAlertesPlans();
         $stockCount = $this->genererAlertesStock();
+        $garantiesCount = $this->genererAlertesGaranties();
 
-        $this->info("{$plansCount} alerte(s) de plan en retard, {$stockCount} alerte(s) de stock bas générée(s).");
+        $this->info("{$plansCount} alerte(s) de plan en retard, {$stockCount} alerte(s) de stock bas, {$garantiesCount} alerte(s) de garantie générée(s).");
 
         return self::SUCCESS;
     }
@@ -102,6 +104,52 @@ class GenererAlertes extends Command
         }
 
         $this->resoudreAlertesObsoletes(User::all(), 'piece_id', $idsEnSousStock);
+
+        return $sent;
+    }
+
+    /**
+     * Alertes d'expiration de garantie : tout équipement dont la garantie expire
+     * dans les 30 jours (ou est déjà expirée) notifie les utilisateurs ayant
+     * accès au module de l'équipement. Seuil arbitré ici : 30 jours — assez tôt
+     * pour anticiper un renouvellement, assez tard pour ne pas noyer.
+     */
+    private function genererAlertesGaranties(): int
+    {
+        $seuil = now()->addDays(30)->startOfDay();
+
+        $equipements = collect([
+            \App\Models\EquipementIndustriel::class,
+            \App\Models\Vehicule::class,
+            \App\Models\EquipementBureau::class,
+        ])
+            ->flatMap(fn (string $classe) => $classe::query()
+                ->whereNotNull('date_fin_garantie')
+                ->where('date_fin_garantie', '<=', $seuil)
+                ->get());
+
+        $idsEnAlerte = $equipements->pluck('id')->all();
+        $sent = 0;
+
+        foreach ($equipements as $equipement) {
+            $module = RoleService::modulePourClasseEquipement($equipement::class);
+
+            if (!$module || !$equipement->organisation_id) {
+                continue;
+            }
+
+            foreach ($this->destinataires($module, $equipement->organisation_id) as $user) {
+                if ($this->dejaAlerte($user, 'garantie_equipement_id', $equipement->id)) {
+                    continue;
+                }
+
+                $user->notify(new GarantieExpiree($equipement, $equipement->date_fin_garantie));
+                $sent++;
+            }
+        }
+
+        // Garantie repoussée au-delà du seuil (ou équipement supprimé) : alerte résolue.
+        $this->resoudreAlertesObsoletes(User::all(), 'garantie_equipement_id', $idsEnAlerte);
 
         return $sent;
     }
