@@ -241,17 +241,25 @@ class RoleService
      */
     public static function peutConsommerPiecesIntervention(User $user, Intervention $intervention): bool
     {
+        $module = self::modulePourClasseEquipement($intervention->equipementable_type);
+
+        return $module !== null && self::peutGererStockModule($user, $module);
+    }
+
+    /**
+     * L'utilisateur peut gérer le stock du module donné (mouvements, consommation) :
+     * super admin → vrai ; rôle admin → vrai ; override « pieces_stock » → sa
+     * valeur ; sinon le rôle doit faire partie des gestionnaires du stock de CE
+     * module (responsable_parc ne gère que le stock du parc automobile).
+     */
+    public static function peutGererStockModule(User $user, string $module): bool
+    {
         if ($user->is_super_admin) {
             return true;
         }
 
         $organisationId = $user->getCurrentOrganisation()?->id;
         if (!$organisationId) {
-            return false;
-        }
-
-        $module = self::modulePourClasseEquipement($intervention->equipementable_type);
-        if ($module === null) {
             return false;
         }
 
@@ -277,5 +285,19 @@ class RoleService
         }
 
         return in_array($role, self::ROLES_STOCK_PAR_MODULE[$module] ?? [], true);
+    }
+
+    /**
+     * Modules dont l'utilisateur gère le stock (page mouvements-stock) : clés de
+     * ROLES_STOCK_PAR_MODULE filtrées par peutGererStockModule.
+     *
+     * @return array<int, string>
+     */
+    public static function modulesStockAccessibles(User $user): array
+    {
+        return array_values(array_filter(
+            array_keys(self::ROLES_STOCK_PAR_MODULE),
+            fn (string $module) => self::peutGererStockModule($user, $module)
+        ));
     }
 }

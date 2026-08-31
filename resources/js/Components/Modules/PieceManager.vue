@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { themes } from '@/moduleTheme';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
@@ -43,7 +43,7 @@ const emptyValues = () => ({
     stock_qte: 0,
     stock_min: 0,
     prix_unitaire_moyen: '',
-    fournisseur: '',
+    fournisseur_id: '',
     notes: '',
 });
 
@@ -70,6 +70,35 @@ function cancel() {
     editingId.value = null;
 }
 
+// ─── Mouvement de stock (entrée / sortie / ajustement) ───────────────────────
+// Journalisé en base (mouvements_stock) avec le stock résultant ; motif
+// obligatoire pour une sortie ou un ajustement d'inventaire.
+const mouvementPiece = ref(null);
+const mouvementForm = useForm({ type: 'entree', quantite: 1, motif: '' });
+
+const mouvementLabels = {
+    entree: 'Entrée (réapprovisionnement)',
+    sortie: 'Sortie manuelle',
+    ajustement: 'Ajustement (stock physique compté)',
+};
+
+function openMouvement(row) {
+    mouvementPiece.value = row;
+    mouvementForm.defaults({ type: 'entree', quantite: 1, motif: '' });
+    mouvementForm.reset();
+}
+
+function cancelMouvement() {
+    mouvementPiece.value = null;
+}
+
+function submitMouvement() {
+    mouvementForm.post(`/pieces/${mouvementPiece.value.id}/mouvements`, {
+        preserveScroll: true,
+        onSuccess: () => { mouvementPiece.value = null; },
+    });
+}
+
 function submit() {
     if (editingId.value) {
         form.put(`${props.updateUrlBase}/${editingId.value}`, {
@@ -93,7 +122,7 @@ function enSousStock(piece) {
 
 <template>
     <div>
-        <div v-if="showFormBlock" class="mb-4">
+        <div v-if="showFormBlock" class="mb-4 flex flex-wrap items-center gap-3">
             <button
                 type="button"
                 @click="showForm ? cancel() : openCreate()"
@@ -102,6 +131,66 @@ function enSousStock(piece) {
             >
                 {{ showForm ? 'Annuler' : 'Nouvelle pièce' }}
             </button>
+            <Link
+                :href="route('mouvements-stock.index')"
+                class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                Historique des mouvements
+            </Link>
+        </div>
+
+        <!-- Mouvement de stock sur une pièce (entrée / sortie / ajustement) -->
+        <div v-if="mouvementPiece" class="materio-item card shadow mb-4">
+            <div class="materio-item card-header py-3">
+                <h6 class="materio-item m-0 fw-bold" :class="t.accent">
+                    Mouvement de stock — {{ mouvementPiece.reference }} (stock actuel : {{ mouvementPiece.stock_qte }} {{ mouvementPiece.unite }})
+                </h6>
+            </div>
+            <div class="materio-item card-body">
+                <form @submit.prevent="submitMouvement">
+                    <div class="materio-item row">
+                        <div class="materio-item form-group col-md-4">
+                            <InputLabel for="mouvement-type" value="Type de mouvement" />
+                            <select id="mouvement-type" v-model="mouvementForm.type" class="materio-item form-control">
+                                <option v-for="(label, value) in mouvementLabels" :key="value" :value="value">{{ label }}</option>
+                            </select>
+                        </div>
+                        <div class="materio-item form-group col-md-4">
+                            <InputLabel for="mouvement-quantite" value="Quantité" />
+                            <input
+                                id="mouvement-quantite"
+                                v-model="mouvementForm.quantite"
+                                type="number"
+                                min="0"
+                                required
+                                class="materio-item form-control"
+                                :class="{ 'is-invalid': mouvementForm.errors.quantite }"
+                            />
+                            <InputError :message="mouvementForm.errors.quantite" />
+                        </div>
+                        <div class="materio-item form-group col-md-4">
+                            <InputLabel for="mouvement-motif" value="Motif" />
+                            <input
+                                id="mouvement-motif"
+                                v-model="mouvementForm.motif"
+                                type="text"
+                                class="materio-item form-control"
+                                :class="{ 'is-invalid': mouvementForm.errors.motif }"
+                                :placeholder="mouvementForm.type === 'entree' ? 'Réappro…' : 'Obligatoire'"
+                            />
+                            <InputError :message="mouvementForm.errors.motif" />
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="rounded-md px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300" @click="cancelMouvement">
+                            Annuler
+                        </button>
+                        <button type="submit" :disabled="mouvementForm.processing" class="rounded-md px-4 py-2 text-sm font-medium shadow-sm disabled:opacity-50" :class="t.button">
+                            Enregistrer le mouvement
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <div v-if="showFormBlock && showForm" class="materio-item card shadow mb-4">
@@ -144,14 +233,14 @@ function enSousStock(piece) {
                             <input id="prix_unitaire_moyen" v-model="form.prix_unitaire_moyen" type="number" step="any" min="0" class="materio-item form-control" />
                         </div>
                         <div class="materio-item form-group col-md-6">
-                            <InputLabel for="fournisseur" value="Fournisseur" />
-                            <select id="fournisseur" v-model="form.fournisseur" class="materio-item form-select" :class="{ 'is-invalid': form.errors.fournisseur }">
+                            <InputLabel for="fournisseur_id" value="Fournisseur" />
+                            <select id="fournisseur_id" v-model="form.fournisseur_id" class="materio-item form-select" :class="{ 'is-invalid': form.errors.fournisseur_id }">
                                 <option value="">Aucun fournisseur</option>
-                                <option v-for="fournisseur in fournisseurs" :key="fournisseur.id" :value="fournisseur.nom">
+                                <option v-for="fournisseur in fournisseurs" :key="fournisseur.id" :value="fournisseur.id">
                                     {{ fournisseur.nom }}
                                 </option>
                             </select>
-                            <InputError :message="form.errors.fournisseur" />
+                            <InputError :message="form.errors.fournisseur_id" />
                         </div>
                         <div class="materio-item form-group col-12">
                             <InputLabel for="notes" value="Notes" />
@@ -189,6 +278,7 @@ function enSousStock(piece) {
 
             <template #actions="{ row }">
                 <button type="button" class="mr-3 font-medium" :class="t.accent" @click="openEdit(row)">Modifier</button>
+                <button type="button" class="mr-3 font-medium" :class="t.accent" @click="openMouvement(row)">Mouvement</button>
                 <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">Supprimer</button>
             </template>
         </DataTable>

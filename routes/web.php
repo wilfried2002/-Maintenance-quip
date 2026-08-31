@@ -9,6 +9,7 @@ use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\IndicateurController;
 use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\InterventionRapportController;
+use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganisationController;
 use App\Http\Controllers\OrganisationSwitchController;
@@ -180,6 +181,16 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
         ->name('pieces.')
         ->group(function () {
             Route::get('/', [PieceController::class, 'index'])->name('index');
+        });
+
+    // Journal des mouvements de stock (entrées/sorties/ajustements) : union des rôles
+    // des stocks ici, le contrôle fin par module est fait dans le contrôleur
+    // (RoleService::modulesStockAccessibles) — comme pour les interventions.
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc')
+        ->group(function () {
+            Route::get('/mouvements-stock', [MouvementStockController::class, 'index'])->name('mouvements-stock.index');
+            // Préfixe pieces.* → l'override pieces_stock s'applique (route_module_map).
+            Route::post('/pieces/{piece}/mouvements', [MouvementStockController::class, 'store'])->name('pieces.mouvements.store');
         });
 
     // Consommation de pièces sur une intervention : commun aux 3 modules équipement
