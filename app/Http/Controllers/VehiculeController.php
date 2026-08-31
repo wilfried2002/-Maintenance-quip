@@ -14,6 +14,7 @@ use App\Models\Intervention;
 use App\Models\Piece;
 use App\Models\PlanMaintenance;
 use App\Models\Vehicule;
+use App\Notifications\InterventionAssignee;
 use App\Services\ModuleDashboardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -213,6 +214,11 @@ class VehiculeController extends Controller
         ]);
 
         $this->recordCoutMainOeuvre($intervention);
+
+        if ($intervention->technicien_id) {
+            $intervention->load(['technicien', 'equipementable']);
+            $intervention->technicien?->notify(new InterventionAssignee($intervention));
+        }
 
         return back()->with('status', 'Intervention enregistrée.');
     }

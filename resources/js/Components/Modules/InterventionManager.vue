@@ -81,6 +81,28 @@ function saveNotes(intervention) {
     notesForm.put(`/interventions/${intervention.id}/notes`, { preserveScroll: true });
 }
 
+const statusForm = useForm({ statut: '' });
+
+function canUpdateStatus(intervention) {
+    return isAdmin.value || intervention.technicien_id === page.props.auth.user?.id;
+}
+
+function nextStatus(intervention) {
+    return intervention.statut === 'planifiee' ? 'en_cours' : 'terminee';
+}
+
+function nextStatusLabel(intervention) {
+    return intervention.statut === 'planifiee' ? 'Démarrer' : 'Terminer';
+}
+
+function updateStatus(intervention) {
+    statusForm.statut = nextStatus(intervention);
+    statusForm.post(route('interventions.status.update', intervention.id), {
+        preserveScroll: true,
+        onFinish: () => statusForm.reset(),
+    });
+}
+
 const emptyValues = () => ({
     equipementable_id: '',
     titre: '',
@@ -317,6 +339,15 @@ function statutLabel(value) {
                     >
                         Rapport PDF
                     </a>
+                    <button
+                        v-if="canUpdateStatus(row) && ['planifiee', 'en_cours'].includes(row.statut)"
+                        type="button"
+                        :disabled="statusForm.processing"
+                        class="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                        @click="updateStatus(row)"
+                    >
+                        {{ nextStatusLabel(row) }}
+                    </button>
                     <template v-if="isAdmin">
                         <button type="button" class="font-medium" :class="t.accent" @click="openEdit(row)">Modifier</button>
                         <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">Supprimer</button>
