@@ -9,6 +9,8 @@ use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\IndicateurController;
 use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\InterventionRapportController;
+use App\Http\Controllers\ActiviteController;
+use App\Http\Controllers\CorbeilleController;
 use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganisationController;
@@ -182,6 +184,15 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
         ->group(function () {
             Route::get('/', [PieceController::class, 'index'])->name('index');
         });
+
+    // Journal d'activité + corbeille (restauration des soft deletes) : admins.
+    Route::middleware('check.role:admin')->group(function () {
+        Route::get('/activites', [ActiviteController::class, 'index'])->name('activites.index');
+
+        Route::get('/corbeille', [CorbeilleController::class, 'index'])->name('corbeille.index');
+        Route::post('/corbeille/{type}/{id}/restore', [CorbeilleController::class, 'restore'])->name('corbeille.restore');
+        Route::delete('/corbeille/{type}/{id}', [CorbeilleController::class, 'destroy'])->name('corbeille.destroy');
+    });
 
     // Journal des mouvements de stock (entrées/sorties/ajustements) : union des rôles
     // des stocks ici, le contrôle fin par module est fait dans le contrôleur

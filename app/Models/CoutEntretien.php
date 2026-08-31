@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class CoutEntretien extends Model
 {
     use BelongsToOrganisation;
+    use ConsigneActivite;
 
     protected $table = 'couts_entretien';
 

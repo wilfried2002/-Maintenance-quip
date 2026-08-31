@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\ConsigneActivite;
 use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasPhoto;
 use App\Models\Concerns\HasPlansMaintenance;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EquipementIndustriel extends Model
 {
-    use HasFactory, SoftDeletes, HasPhoto, HasDocuments, HasPlansMaintenance, BelongsToOrganisation;
+    use HasFactory, SoftDeletes, HasPhoto, HasDocuments, HasPlansMaintenance, BelongsToOrganisation, ConsigneActivite;
 
     protected $table = 'equipements_industriels';
 

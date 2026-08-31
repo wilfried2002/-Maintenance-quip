@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\ConsigneActivite;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Piece extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToOrganisation;
+    use HasFactory, SoftDeletes, BelongsToOrganisation, ConsigneActivite;
 
     protected $fillable = [
         'organisation_id',

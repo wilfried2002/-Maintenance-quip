@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MouvementStock extends Model
 {
     use BelongsToOrganisation;
+    use ConsigneActivite;
 
     protected $table = 'mouvements_stock';
 

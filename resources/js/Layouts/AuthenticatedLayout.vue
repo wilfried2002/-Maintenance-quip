@@ -115,6 +115,24 @@ const year = new Date().getFullYear();
                         </li>
                     </template>
 
+                    <li v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin" class="materio-item menu-header mt-5">
+                        <span class="materio-item menu-header-text">Administration</span>
+                    </li>
+                    <template v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin">
+                        <li class="materio-item menu-item" :class="{ active: isActive('activites.index') }">
+                            <Link class="materio-item menu-link" :href="route('activites.index')">
+                                <i class="materio-item menu-icon icon-base ri ri-file-list-3-line"></i>
+                                <div>Journal d'activité</div>
+                            </Link>
+                        </li>
+                        <li class="materio-item menu-item" :class="{ active: isActive('corbeille.index') }">
+                            <Link class="materio-item menu-link" :href="route('corbeille.index')">
+                                <i class="materio-item menu-icon icon-base ri ri-delete-bin-line"></i>
+                                <div>Corbeille</div>
+                            </Link>
+                        </li>
+                    </template>
+
                     <template v-if="$page.props.auth.isSuperAdmin">
                         <li class="materio-item menu-header mt-5">
                             <span class="materio-item menu-header-text">Plateforme</span>
