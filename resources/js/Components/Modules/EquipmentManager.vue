@@ -100,6 +100,9 @@ function destroy(item) {
     }
 }
 
+// Type de module dans les URLs de rapports (/rapports/fiche/{type}/{id}…).
+const rapportType = props.storeUrl.split('/')[1];
+
 const visibleFields = computed(() => props.fields.filter((f) => f.column !== false));
 const firstFieldKey = computed(() => props.fields[0]?.key);
 const columns = computed(() => [
@@ -119,6 +122,13 @@ const columns = computed(() => [
             >
                 {{ showForm ? 'Annuler' : 'Nouvel enregistrement' }}
             </button>
+            <a
+                :href="`/rapports/liste/${rapportType}/equipements`"
+                target="_blank"
+                class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                <i class="ri-file-pdf-line"></i> Exporter la liste (PDF)
+            </a>
         </div>
 
         <!-- Formulaire d'enregistrement / édition -->
@@ -262,6 +272,8 @@ const columns = computed(() => [
                 <button type="button" class="mr-3 font-medium" :class="t.accent" @click="openEdit(row)">
                     Modifier
                 </button>
+                <a :href="`/rapports/fiche/${rapportType}/${row.id}`" target="_blank" class="mr-3 font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400" title="Fiche PDF">PDF</a>
+                <a :href="`/rapports/etiquette/${rapportType}/${row.id}`" target="_blank" class="mr-3 font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400" title="Étiquette QR (PDF)">Étiquette</a>
                 <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">
                     Supprimer
                 </button>

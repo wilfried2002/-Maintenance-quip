@@ -38,6 +38,9 @@ const interventionsPaginees = computed(() =>
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
 const initialSearch = new URLSearchParams(window.location.search).get('q') ?? '';
 
+// Type de module pour les exports PDF (/rapports/liste/{type}/interventions).
+const rapportType = props.storeUrl.split('/')[1];
+
 const showForm = ref(false);
 const editingId = ref(null);
 
@@ -174,6 +177,13 @@ function statutLabel(value) {
             >
                 {{ showForm ? 'Annuler' : 'Planifier une intervention' }}
             </button>
+            <a
+                :href="`/rapports/liste/${rapportType}/interventions`"
+                target="_blank"
+                class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                <i class="ri-file-pdf-line"></i> Exporter (PDF)
+            </a>
         </div>
 
         <div v-if="showFormBlock && showForm" class="materio-item card shadow mb-4">

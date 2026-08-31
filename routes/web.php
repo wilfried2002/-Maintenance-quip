@@ -14,6 +14,7 @@ use App\Http\Controllers\CorbeilleController;
 use App\Http\Controllers\DemandeInterventionController;
 use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\RapportController;
 use App\Http\Controllers\OrganisationController;
 use App\Http\Controllers\OrganisationSwitchController;
 use App\Http\Controllers\PieceConsumptionController;
@@ -210,6 +211,12 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
 
     // Planning/calendrier des interventions des modules accessibles.
     Route::get('/calendrier', [DemandeInterventionController::class, 'calendrier'])->name('calendrier.index');
+
+    // Exports PDF : fiche équipement, étiquette QR, listes (9/10). Les
+    // permissions sont vérifiées dans le contrôleur (accès module / rôle stock).
+    Route::get('/rapports/fiche/{type}/{id}', [RapportController::class, 'fiche'])->name('rapports.fiche');
+    Route::get('/rapports/etiquette/{type}/{id}', [RapportController::class, 'etiquette'])->name('rapports.etiquette');
+    Route::get('/rapports/liste/{type}/{quoi}', [RapportController::class, 'liste'])->name('rapports.liste');
 
     // Journal des mouvements de stock (entrées/sorties/ajustements) : union des rôles
     // des stocks ici, le contrôle fin par module est fait dans le contrôleur

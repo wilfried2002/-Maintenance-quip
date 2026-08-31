@@ -29,6 +29,9 @@ const piecesPaginees = computed(() =>
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
 const initialSearch = new URLSearchParams(window.location.search).get('q') ?? '';
 
+// Type de module pour les exports PDF (/rapports/liste/{type}/pieces).
+const rapportType = props.storeUrl.split('/')[1];
+
 const columns = [
     { key: 'reference', label: 'Référence' },
     { key: 'designation', label: 'Désignation' },
@@ -143,6 +146,13 @@ function enSousStock(piece) {
             >
                 Historique des mouvements
             </Link>
+            <a
+                :href="`/rapports/liste/${rapportType}/pieces`"
+                target="_blank"
+                class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                <i class="ri-file-pdf-line"></i> Exporter (PDF)
+            </a>
         </div>
 
         <!-- Mouvement de stock sur une pièce (entrée / sortie / ajustement) -->
