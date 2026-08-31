@@ -15,6 +15,7 @@ use App\Http\Controllers\DemandeInterventionController;
 use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RapportController;
+use App\Http\Controllers\ReleveKilometriqueController;
 use App\Http\Controllers\OrganisationController;
 use App\Http\Controllers\OrganisationSwitchController;
 use App\Http\Controllers\PieceConsumptionController;
@@ -126,6 +127,10 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::get('/{vehicule}', [VehiculeController::class, 'show'])->name('show');
             Route::put('/{vehicule}', [VehiculeController::class, 'update'])->name('update');
             Route::delete('/{vehicule}', [VehiculeController::class, 'destroy'])->name('destroy');
+
+            // Historique des relevés kilométriques (10/10).
+            Route::post('/{vehicule}/releves', [ReleveKilometriqueController::class, 'store'])->name('releves.store');
+            Route::delete('/{vehicule}/releves/{releve}', [ReleveKilometriqueController::class, 'destroy'])->name('releves.destroy');
 
             Route::post('/{vehicule}/documents', [VehiculeController::class, 'documentsStore'])->name('documents.store');
             Route::delete('/{vehicule}/documents/{document}', [VehiculeController::class, 'documentsDestroy'])->name('documents.destroy');

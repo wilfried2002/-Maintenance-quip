@@ -94,11 +94,13 @@ class VehiculeController extends Controller
             'documents.uploader',
             'interventions' => fn ($q) => $q->with('technicien')->latest('date_planifiee')->limit(10),
             'plansMaintenance' => fn ($q) => $q->where('actif', true),
+            'releves.utilisateur:id,name',
         ]);
         $vehicule->plansMaintenance->append(['prochaine_echeance', 'en_retard']);
 
         return Inertia::render('Vehicules/Show', [
             'vehicule' => $vehicule,
+            'releves' => $vehicule->releves->take(30)->values(),
             'stats' => $this->equipementStats($vehicule, Vehicule::class),
         ]);
     }
@@ -158,7 +160,22 @@ class VehiculeController extends Controller
 
         $vehicule->fill($data);
         $this->replacePhoto($request, $vehicule, 'vehicules');
+
+        $ancienKilometrage = (int) $vehicule->getOriginal('kilometrage_actuel');
         $vehicule->save();
+
+        // Toute hausse du compteur via la fiche alimente l'historique des relevés
+        // (10/10) — le compteur ne doit plus jamais bouger sans trace.
+        if ((int) $vehicule->kilometrage_actuel > $ancienKilometrage) {
+            \App\Models\ReleveKilometrique::create([
+                'vehicule_id' => $vehicule->id,
+                'kilometrage' => (int) $vehicule->kilometrage_actuel,
+                'date_releve' => now()->toDateString(),
+                'source' => 'edition_vehicule',
+                'user_id' => Auth::id(),
+                'note' => 'Compteur mis à jour depuis la fiche véhicule',
+            ]);
+        }
 
         return back()->with('status', 'Véhicule mis à jour.');
     }

@@ -2,11 +2,13 @@
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import EquipmentShow from '@/Components/Modules/EquipmentShow.vue';
+import ReleveKilometriqueManager from '@/Components/Modules/ReleveKilometriqueManager.vue';
 import ModuleNavTiles from '@/Components/ModuleNavTiles.vue';
 import { themes } from '@/moduleTheme';
 
 const props = defineProps({
     vehicule: { type: Object, required: true },
+    releves: { type: Array, required: true },
     stats: { type: Object, default: null },
 });
 
@@ -65,6 +67,12 @@ const fields = [
                     :documents-destroy-url-base="`/vehicules/${vehicule.id}/documents`"
                     :stats="stats"
                     :dashboard-url="route('vehicules.dashboard')"
+                />
+
+                <ReleveKilometriqueManager
+                    theme="green"
+                    :vehicule="vehicule"
+                    :releves="releves"
                 />
             </div>
         </div>

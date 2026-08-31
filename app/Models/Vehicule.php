@@ -60,6 +60,20 @@ class Vehicule extends Model
         return $this->belongsTo(User::class, 'chauffeur_id');
     }
 
+    /**
+     * Historique des relevés kilométriques (10/10) — chaque lecture du compteur
+     * est journalisée, les plans au kilomètre s'appuient dessus.
+     */
+    public function releves()
+    {
+        return $this->hasMany(ReleveKilometrique::class)->orderByDesc('date_releve')->orderByDesc('id');
+    }
+
+    public function dernierReleve(): ?ReleveKilometrique
+    {
+        return $this->releves()->first();
+    }
+
     public function fournisseur(): BelongsTo
     {
         return $this->belongsTo(Fournisseur::class);
