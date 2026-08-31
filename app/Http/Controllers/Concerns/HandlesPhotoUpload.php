@@ -14,7 +14,11 @@ trait HandlesPhotoUpload
 
     /**
      * Remplace la photo du modèle si un nouveau fichier est envoyé, en supprimant
-     * l'ancienne du disque public. Ne fait rien si aucun fichier n'est présent.
+     * l'ancienne du disque privé. Ne fait rien si aucun fichier n'est présent.
+     *
+     * Les photos sont stockées sur le disque « local » (storage/app/private) :
+     * elles ne sont servies que via FichierController (URL authentifiée), jamais
+     * depuis /storage/... qui était public.
      */
     protected function replacePhoto(Request $request, $model, string $folder): void
     {
@@ -23,9 +27,9 @@ trait HandlesPhotoUpload
         }
 
         if ($model->photo) {
-            Storage::disk('public')->delete($model->photo);
+            Storage::disk('local')->delete($model->photo);
         }
 
-        $model->photo = $request->file('photo')->store($folder, 'public');
+        $model->photo = $request->file('photo')->store($folder, 'local');
     }
 }

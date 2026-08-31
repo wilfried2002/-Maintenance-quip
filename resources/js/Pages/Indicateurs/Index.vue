@@ -10,8 +10,6 @@ const props = defineProps({
 });
 
 const t = themes.purple;
-const page = usePage();
-const statut = computed(() => page.props.flash?.status);
 
 const columns = [
     { key: 'reference', label: 'Référence' },
@@ -94,10 +92,6 @@ function tauxClasses(valeur) {
                     Calculés à partir des consommations réelles enregistrées sur les interventions (aucune saisie manuelle).
                     Le taux de défaillance est la part des remplacements survenus lors d'une intervention corrective plutôt que préventive.
                 </p>
-
-                <div v-if="statut" class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200" role="status">
-                    {{ statut }}
-                </div>
 
                 <DataTable
                     theme="purple"

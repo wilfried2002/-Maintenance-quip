@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import GlobalSearch from '@/Components/GlobalSearch.vue';
+import FlashToasts from '@/Components/FlashToasts.vue';
 
 const page = usePage();
 
@@ -73,6 +74,9 @@ const year = new Date().getFullYear();
 
 <template>
     <div class="materio-item layout-wrapper layout-content-navbar">
+        <!-- Toasts globaux (succès/erreur flashés par le serveur) -->
+        <FlashToasts />
+
         <div class="materio-item layout-container">
             <!-- Sidebar -->
             <aside id="layout-menu" class="materio-item layout-menu menu-vertical menu bg-menu-theme">

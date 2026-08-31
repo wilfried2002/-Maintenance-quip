@@ -4,6 +4,7 @@ use App\Http\Controllers\CoutEntretienController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipementBureauController;
 use App\Http\Controllers\EquipementIndustrielController;
+use App\Http\Controllers\FichierController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\IndicateurController;
 use App\Http\Controllers\InterventionController;
@@ -36,6 +37,13 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
 
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+    // Fichiers sur le disque PRIVÉ (photos d'équipements, documents rattachés) :
+    // servis par FichierController après vérification du cloisonnement organisation
+    // (scope global au binding) ET de la permission sur le module de l'équipement.
+    // Aucun rôle fixe ici : le contrôle fin dépend du module de l'équipement visé.
+    Route::get('/fichiers/documents/{document}', [FichierController::class, 'document'])->name('fichiers.document');
+    Route::get('/fichiers/photo/{type}/{id}', [FichierController::class, 'photo'])->name('fichiers.photo');
 
     // Recherche globale (barre du topbar) : pas de check.role, le filtrage par module se
     // fait à l'intérieur de SearchService (même principe que la sidebar : accessibleModules).
@@ -228,6 +236,8 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::get('/', [UserController::class, 'index'])->name('index');
             Route::post('/', [UserController::class, 'store'])->name('store');
             Route::put('/{user}', [UserController::class, 'update'])->name('update');
+            // Grille de permissions par module (overrides au-delà du rôle).
+            Route::put('/{user}/permissions', [UserController::class, 'updatePermissions'])->name('permissions.update');
             Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
         });
 

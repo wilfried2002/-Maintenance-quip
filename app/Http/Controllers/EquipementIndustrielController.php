@@ -92,7 +92,7 @@ class EquipementIndustrielController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('equipements-industriels', 'public');
+            $data['photo'] = $request->file('photo')->store('equipements-industriels', 'local');
         }
 
         EquipementIndustriel::create($data);

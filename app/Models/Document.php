@@ -25,11 +25,14 @@ class Document extends Model
     protected $appends = ['url'];
 
     /**
-     * URL relative : évite de dépendre d'APP_URL (voir HasPhoto).
+     * Les fichiers vivent sur le disque privé (storage/app/private) : l'URL passe
+     * par FichierController, qui vérifie organisation + module avant de servir le
+     * fichier (plus d'URL /storage/... publique et non authentifiée). URL
+     * relative pour ne pas dépendre de APP_URL (voir HasPhoto).
      */
     public function getUrlAttribute(): string
     {
-        return '/storage/' . ltrim($this->chemin, '/');
+        return route('fichiers.document', ['document' => $this->id], absolute: false);
     }
 
     public function equipementable(): MorphTo

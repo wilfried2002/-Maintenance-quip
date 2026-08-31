@@ -18,14 +18,15 @@ trait HandlesDocuments
 
     /**
      * Enregistre chaque fichier envoyé comme un Document rattaché au modèle, et
-     * retourne le nombre de documents créés.
+     * retourne le nombre de documents créés. Fichiers stockés sur le disque
+     * PRIVÉ (« local » : storage/app/private) et servis via FichierController.
      */
     protected function storeDocuments(Request $request, $model, string $folder): int
     {
         $count = 0;
 
         foreach ($request->file('documents', []) as $file) {
-            $path = $file->store($folder, 'public');
+            $path = $file->store($folder, 'local');
 
             $model->documents()->create([
                 // Organisation du document = celle de l'équipement porteur (le scope
@@ -61,7 +62,7 @@ trait HandlesDocuments
             404
         );
 
-        Storage::disk('public')->delete($document->chemin);
+        Storage::disk('local')->delete($document->chemin);
         $document->delete();
     }
 }

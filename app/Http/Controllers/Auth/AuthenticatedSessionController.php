@@ -39,17 +39,16 @@ class AuthenticatedSessionController extends Controller
         // Si un code organisation est fourni, vérifier l'organisation AVANT authentification.
         $organisation = null;
         if ($organisationCode) {
-            $organisation = Organisation::where('code', $organisationCode)->first();
+            // Message générique unique (code inconnu OU organisation désactivée) :
+            // ne pas révéler quels codes existent — ils servent aussi à la connexion
+            // et à l'inscription (évite l'énumération des organisations clientes).
+            $organisation = Organisation::where('code', $organisationCode)
+                ->where('is_active', true)
+                ->first();
 
             if (!$organisation) {
                 return back()->withErrors([
-                    'organisation_code' => 'Code organisation invalide.',
-                ])->onlyInput('email', 'organisation_code');
-            }
-
-            if (!$organisation->is_active) {
-                return back()->withErrors([
-                    'organisation_code' => 'Cette organisation est désactivée.',
+                    'organisation_code' => 'Code organisation invalide ou désactivé.',
                 ])->onlyInput('email', 'organisation_code');
             }
         }
@@ -91,16 +90,24 @@ class AuthenticatedSessionController extends Controller
             ])->onlyInput('email');
         }
 
-        // Vérifier que l'utilisateur appartient à cette organisation.
-        $belongsToOrganisation = $user->organisations()
+        // Vérifier que l'utilisateur appartient à cette organisation. Un membre
+        // INACTIF (inscription en attente d'activation par un admin) reçoit un
+        // message dédié plutôt que le refus générique.
+        $membership = $user->organisations()
             ->where('organisations.id', $organisation->id)
-            ->where('user_organisations.is_active', true)
-            ->exists();
+            ->first();
 
-        if (!$belongsToOrganisation) {
+        if (!$membership) {
             Auth::logout();
             return back()->withErrors([
                 'email' => 'Vous n\'êtes pas autorisé à accéder à cette organisation.',
+            ])->onlyInput('email', 'organisation_code');
+        }
+
+        if (!$membership->pivot->is_active) {
+            Auth::logout();
+            return back()->withErrors([
+                'email' => 'Votre compte n\'a pas encore été activé par un administrateur de cette organisation.',
             ])->onlyInput('email', 'organisation_code');
         }
 

@@ -92,7 +92,7 @@ class VehiculeController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('vehicules', 'public');
+            $data['photo'] = $request->file('photo')->store('vehicules', 'local');
         }
 
         Vehicule::create($data);

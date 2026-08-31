@@ -239,6 +239,7 @@ Gabarit prêt à l'emploi : **`.env.production.example`** (copier vers `.env` pu
   * * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1
   ```
 - [ ] `php artisan migrate --force` (applique notamment le cloisonnement `organisation_id` de la table `documents`).
+- [ ] **`php artisan fichiers:prive`** — déplace les photos/documents existants de `storage/app/public` (servi sans authentification) vers `storage/app/private`, d'où ils sont servis par `FichierController` avec contrôle organisation + module. À exécuter UNE FOIS lors de la mise à jour ; les nouveaux fichiers vont directement sur le disque privé.
 - [ ] `php artisan storage:ensure-link` puis `chown -R www-data:www-data storage bootstrap/cache`.
 - [ ] `php artisan config:cache && php artisan route:cache` après tout changement de `.env`.
 

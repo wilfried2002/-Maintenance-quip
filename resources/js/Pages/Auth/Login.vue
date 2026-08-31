@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 
 defineProps({
     canResetPassword: {
@@ -9,6 +9,11 @@ defineProps({
         type: String,
     },
 });
+
+const page = usePage();
+// Message d'erreur flashé par le serveur (ex. session expirée -> CheckOrganisationAccess,
+// inscription en attente d'activation) : affiché au-dessus du formulaire.
+const flashError = () => page.props.flash?.error;
 
 const form = useForm({
     email: '',
@@ -44,6 +49,7 @@ const submit = () => {
                         <p class="mb-5">Connectez-vous pour accéder à votre espace de maintenance.</p>
 
                         <div v-if="status" class="alert alert-success small">{{ status }}</div>
+                        <div v-if="flashError()" class="alert alert-danger small">{{ flashError() }}</div>
 
                         <form @submit.prevent="submit">
                             <div class="form-floating form-floating-outline mb-5">

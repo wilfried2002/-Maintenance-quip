@@ -49,6 +49,10 @@ class HandleInertiaRequests extends Middleware
             'moduleDefs' => config('modules.list'),
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
+                // Messages d'erreur flashés (CheckOrganisationAccess, CheckSuperAdmin,
+                // etc.) : sans ce partage, ils étaient perdus silencieusement côté
+                // front — affichés par le composant FlashToasts (et sur le login).
+                'error' => fn () => $request->session()->get('error'),
             ],
             'organisationSwitcher' => ($user?->isSuperAdmin())
                 ? [

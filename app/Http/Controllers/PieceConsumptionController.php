@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PieceConsumptionController extends Controller
 {
@@ -38,19 +39,26 @@ class PieceConsumptionController extends Controller
             ]);
         }
 
-        if ($piece->stock_qte < $data['quantite']) {
-            return back()->withErrors([
-                'quantite' => "Stock insuffisant pour « {$piece->designation} » (disponible : {$piece->stock_qte}).",
-            ]);
-        }
-
+        // Contrôle du stock + décrément DANS la même transaction, sur la ligne
+        // verrouillée (SELECT ... FOR UPDATE) : deux consommations simultanées de
+        // la même pièce ne peuvent plus faire passer le stock en négatif — le
+        // second attend le premier, relit le stock à jour, et est refusé s'il est
+        // insuffisant. (SQLite ignore le verrou : sans effet sur les tests.)
         DB::transaction(function () use ($intervention, $piece, $data) {
-            $intervention->pieces()->attach($piece->id, [
+            $pieceVerrouillee = Piece::whereKey($piece->id)->lockForUpdate()->firstOrFail();
+
+            if ($pieceVerrouillee->stock_qte < $data['quantite']) {
+                throw ValidationException::withMessages([
+                    'quantite' => "Stock insuffisant pour « {$pieceVerrouillee->designation} » (disponible : {$pieceVerrouillee->stock_qte}).",
+                ]);
+            }
+
+            $intervention->pieces()->attach($pieceVerrouillee->id, [
                 'quantite' => $data['quantite'],
-                'prix_unitaire' => $piece->prix_unitaire_moyen,
+                'prix_unitaire' => $pieceVerrouillee->prix_unitaire_moyen,
             ]);
 
-            $piece->decrement('stock_qte', $data['quantite']);
+            $pieceVerrouillee->decrement('stock_qte', $data['quantite']);
         });
 
         $calculator->recalculerPiece($piece);

@@ -89,7 +89,7 @@ class EquipementBureauController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('equipements-bureau', 'public');
+            $data['photo'] = $request->file('photo')->store('equipements-bureau', 'local');
         }
 
         EquipementBureau::create($data);
