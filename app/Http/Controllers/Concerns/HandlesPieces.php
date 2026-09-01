@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\Fournisseur;
 use App\Models\Piece;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,9 @@ trait HandlesPieces
             'stock_qte' => ['nullable', 'integer', 'min:0'],
             'stock_min' => ['nullable', 'integer', 'min:0'],
             'prix_unitaire_moyen' => ['nullable', 'numeric', 'min:0'],
-            'fournisseur' => ['nullable', 'string', 'max:255'],
+            // Vraie FK vers fournisseurs : l'ancien champ texte libre « fournisseur »
+            // était cassé au premier renommage du fournisseur.
+            'fournisseur_id' => ['nullable', 'exists:fournisseurs,id'],
             'notes' => ['nullable', 'string'],
         ];
     }
@@ -33,6 +36,31 @@ trait HandlesPieces
         return Piece::where('module', $module)->orderBy('designation')->get();
     }
 
+    /**
+     * Version paginée pour la page de gestion du stock du module (recherche,
+     * tri sur liste blanche, page) — la liste complète reste utilisée pour les
+     * listes déroulates (consommation sur intervention, ...).
+     */
+    protected function piecesPagineesPourModule(string $module, Request $request)
+    {
+        [$tri, $sens, $parPage] = $this->parametresTri(
+            $request,
+            ['designation', 'reference', 'categorie', 'stock_qte', 'stock_min', 'prix_unitaire_moyen'],
+            'designation',
+            'asc'
+        );
+
+        $recherche = $this->termeRecherche($request);
+
+        return Piece::where('module', $module)
+            ->when($recherche !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('reference', 'like', "%{$recherche}%")
+                ->orWhere('designation', 'like', "%{$recherche}%")))
+            ->orderBy($tri, $sens)
+            ->paginate($parPage)
+            ->withQueryString();
+    }
+
     protected function storePieceForModule(Request $request, string $module): RedirectResponse
     {
         $data = $request->validate([
@@ -40,7 +68,7 @@ trait HandlesPieces
             ...$this->pieceValidationRules(),
         ]);
 
-        Piece::create([...$data, 'module' => $module]);
+        Piece::create([...$this->avecNomFournisseur($data), 'module' => $module]);
 
         return back()->with('status', 'Pièce enregistrée.');
     }
@@ -54,7 +82,7 @@ trait HandlesPieces
             ...$this->pieceValidationRules(),
         ]);
 
-        $piece->update($data);
+        $piece->update($this->avecNomFournisseur($data));
 
         return back()->with('status', 'Pièce mise à jour.');
     }
@@ -66,5 +94,22 @@ trait HandlesPieces
         $piece->delete();
 
         return back()->with('status', 'Pièce supprimée.');
+    }
+
+    /**
+     * Resynchronise le champ texte pieces.fournisseur (conservé pour l'affichage)
+     * depuis la FK fournisseur_id : si un fournisseur est lié, son nom actuel fait
+     * foi — sinon on garde le texte existant inchangé.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function avecNomFournisseur(array $data): array
+    {
+        if (array_key_exists('fournisseur_id', $data) && $data['fournisseur_id'] !== null) {
+            $data['fournisseur'] = Fournisseur::find($data['fournisseur_id'])?->nom;
+        }
+
+        return $data;
     }
 }

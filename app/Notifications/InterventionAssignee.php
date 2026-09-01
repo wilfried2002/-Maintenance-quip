@@ -9,6 +9,10 @@ use App\Models\Vehicule;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Préviens le technicien qu'une intervention lui est assignée (workflow de
+ * statut — reintgré depuis le commit du 31/08 du dépôt principal).
+ */
 class InterventionAssignee extends Notification
 {
     use Queueable;

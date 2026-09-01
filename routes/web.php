@@ -4,11 +4,18 @@ use App\Http\Controllers\CoutEntretienController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquipementBureauController;
 use App\Http\Controllers\EquipementIndustrielController;
+use App\Http\Controllers\FichierController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\IndicateurController;
 use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\InterventionRapportController;
+use App\Http\Controllers\ActiviteController;
+use App\Http\Controllers\CorbeilleController;
+use App\Http\Controllers\DemandeInterventionController;
+use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\RapportController;
+use App\Http\Controllers\ReleveKilometriqueController;
 use App\Http\Controllers\OrganisationController;
 use App\Http\Controllers\OrganisationSwitchController;
 use App\Http\Controllers\PieceConsumptionController;
@@ -36,6 +43,13 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
 
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+    // Fichiers sur le disque PRIVÉ (photos d'équipements, documents rattachés) :
+    // servis par FichierController après vérification du cloisonnement organisation
+    // (scope global au binding) ET de la permission sur le module de l'équipement.
+    // Aucun rôle fixe ici : le contrôle fin dépend du module de l'équipement visé.
+    Route::get('/fichiers/documents/{document}', [FichierController::class, 'document'])->name('fichiers.document');
+    Route::get('/fichiers/photo/{type}/{id}', [FichierController::class, 'photo'])->name('fichiers.photo');
 
     // Recherche globale (barre du topbar) : pas de check.role, le filtrage par module se
     // fait à l'intérieur de SearchService (même principe que la sidebar : accessibleModules).
@@ -114,18 +128,12 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::put('/{vehicule}', [VehiculeController::class, 'update'])->name('update');
             Route::delete('/{vehicule}', [VehiculeController::class, 'destroy'])->name('destroy');
 
+            // Historique des relevés kilométriques (10/10).
+            Route::post('/{vehicule}/releves', [ReleveKilometriqueController::class, 'store'])->name('releves.store');
+            Route::delete('/{vehicule}/releves/{releve}', [ReleveKilometriqueController::class, 'destroy'])->name('releves.destroy');
+
             Route::post('/{vehicule}/documents', [VehiculeController::class, 'documentsStore'])->name('documents.store');
             Route::delete('/{vehicule}/documents/{document}', [VehiculeController::class, 'documentsDestroy'])->name('documents.destroy');
-        });
-
-    Route::middleware('check.role:responsable_maintenance,technicien,responsable_parc,magasinier')
-        ->prefix('vehicules/pieces')
-        ->name('vehicules.pieces.')
-        ->group(function () {
-            Route::get('/', [VehiculeController::class, 'piecesIndex'])->name('index');
-            Route::post('/', [VehiculeController::class, 'piecesStore'])->name('store');
-            Route::put('/{piece}', [VehiculeController::class, 'piecesUpdate'])->name('update');
-            Route::delete('/{piece}', [VehiculeController::class, 'piecesDestroy'])->name('destroy');
         });
 
     Route::middleware('check.role:responsable_maintenance,technicien,magasinier')
@@ -184,13 +192,68 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::get('/', [PieceController::class, 'index'])->name('index');
         });
 
+    // Journal d'activité + corbeille (restauration des soft deletes) : admins.
+    Route::middleware('check.role:admin')->group(function () {
+        Route::get('/activites', [ActiviteController::class, 'index'])->name('activites.index');
+
+        Route::get('/corbeille', [CorbeilleController::class, 'index'])->name('corbeille.index');
+        Route::post('/corbeille/{type}/{id}/restore', [CorbeilleController::class, 'restore'])->name('corbeille.restore');
+        Route::delete('/corbeille/{type}/{id}', [CorbeilleController::class, 'destroy'])->name('corbeille.destroy');
+    });
+
+    // Demandes d'intervention des utilisateurs finaux + workflow de validation.
+    Route::get('/mes-demandes', [DemandeInterventionController::class, 'mesDemandes'])->name('demandes.mes');
+    Route::post('/demandes', [DemandeInterventionController::class, 'store'])->name('demandes.store');
+
+    // Traitement des demandes : réservé à ceux qui accèdent à au moins un module
+    // (le filtrage fin par module est fait dans le contrôleur).
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc,admin')
+        ->group(function () {
+            Route::get('/demandes', [DemandeInterventionController::class, 'index'])->name('demandes.index');
+            Route::post('/demandes/{demande}/decision', [DemandeInterventionController::class, 'decision'])->name('demandes.decision');
+            Route::post('/demandes/{demande}/convertir', [DemandeInterventionController::class, 'convertir'])->name('demandes.convertir');
+        });
+
+    // Planning/calendrier des interventions des modules accessibles.
+    Route::get('/calendrier', [DemandeInterventionController::class, 'calendrier'])->name('calendrier.index');
+
+    // Exports PDF : fiche équipement, étiquette QR, listes (9/10). Les
+    // permissions sont vérifiées dans le contrôleur (accès module / rôle stock).
+    Route::get('/rapports/fiche/{type}/{id}', [RapportController::class, 'fiche'])->name('rapports.fiche');
+    Route::get('/rapports/etiquette/{type}/{id}', [RapportController::class, 'etiquette'])->name('rapports.etiquette');
+    Route::get('/rapports/liste/{type}/{quoi}', [RapportController::class, 'liste'])->name('rapports.liste');
+
+    // Journal des mouvements de stock (entrées/sorties/ajustements) : union des rôles
+    // des stocks ici, le contrôle fin par module est fait dans le contrôleur
+    // (RoleService::modulesStockAccessibles) — comme pour les interventions.
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc')
+        ->group(function () {
+            Route::get('/mouvements-stock', [MouvementStockController::class, 'index'])->name('mouvements-stock.index');
+            // Préfixe pieces.* → l'override pieces_stock s'applique (route_module_map).
+            Route::post('/pieces/{piece}/mouvements', [MouvementStockController::class, 'store'])->name('pieces.mouvements.store');
+        });
+
     // Consommation de pièces sur une intervention : commun aux 3 modules équipement
     // (la table interventions est unique, indépendante du préfixe qui l'a créée).
-    Route::post('/interventions/{intervention}/pieces', [PieceConsumptionController::class, 'store'])->name('interventions.pieces.store');
-    Route::delete('/interventions/{intervention}/pieces/{interventionPiece}', [PieceConsumptionController::class, 'destroy'])->name('interventions.pieces.destroy');
-    Route::get('/interventions/{intervention}/rapport', [InterventionRapportController::class, 'show'])->name('interventions.rapport');
-    Route::put('/interventions/{intervention}/notes', [InterventionController::class, 'updateNotes'])->name('interventions.notes.update');
-    Route::post('/interventions/{intervention}/status', [InterventionController::class, 'updateStatus'])->name('interventions.status.update');
+    // Le module concerné dépend de l'ÉQUIPEMENT de l'intervention, pas du préfixe de
+    // l'URL : le middleware ci-dessous ne filtre que l'union des rôles des 3 stocks,
+    // le contrôle fin par module est fait dans le contrôleur
+    // (RoleService::peutConsommerPiecesIntervention).
+    Route::middleware('check.role:responsable_maintenance,technicien,magasinier,responsable_parc')
+        ->group(function () {
+            Route::post('/interventions/{intervention}/pieces', [PieceConsumptionController::class, 'store'])->name('interventions.pieces.store');
+            Route::delete('/interventions/{intervention}/pieces/{interventionPiece}', [PieceConsumptionController::class, 'destroy'])->name('interventions.pieces.destroy');
+        });
+
+    // Rapport PDF et notes de terrain : même principe — union des rôles des 3 modules
+    // équipement ici, le contrôle du module réel de l'intervention (celui de son
+    // équipement) est fait dans le contrôleur (RoleService::peutAccederIntervention).
+    Route::middleware('check.role:responsable_maintenance,technicien,responsable_parc,superviseur,user')
+        ->group(function () {
+            Route::get('/interventions/{intervention}/rapport', [InterventionRapportController::class, 'show'])->name('interventions.rapport');
+            Route::put('/interventions/{intervention}/notes', [InterventionController::class, 'updateNotes'])->name('interventions.notes.update');
+            Route::post('/interventions/{intervention}/status', [InterventionController::class, 'updateStatus'])->name('interventions.status.update');
+        });
     Route::middleware('check.role:admin')->group(function () {
         Route::put('/interventions/{intervention}', [InterventionController::class, 'update'])->name('interventions.update');
         Route::delete('/interventions/{intervention}', [InterventionController::class, 'destroy'])->name('interventions.destroy');
@@ -225,6 +288,8 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
             Route::get('/', [UserController::class, 'index'])->name('index');
             Route::post('/', [UserController::class, 'store'])->name('store');
             Route::put('/{user}', [UserController::class, 'update'])->name('update');
+            // Grille de permissions par module (overrides au-delà du rôle).
+            Route::put('/{user}/permissions', [UserController::class, 'updatePermissions'])->name('permissions.update');
             Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
         });
 

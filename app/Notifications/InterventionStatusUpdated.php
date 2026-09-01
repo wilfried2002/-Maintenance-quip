@@ -6,6 +6,11 @@ use App\Models\Intervention;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
+/**
+ * Préviens les admins (et le technicien assigné lorsqu'il n'est pas l'acteur)
+ * du changement de statut d'une intervention (workflow — reintgré depuis le
+ * commit du 31/08 du dépôt principal).
+ */
 class InterventionStatusUpdated extends Notification
 {
     use Queueable;

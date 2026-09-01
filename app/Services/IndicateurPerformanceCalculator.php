@@ -59,6 +59,8 @@ class IndicateurPerformanceCalculator
                 'interventions.type_intervention',
                 'interventions.equipementable_type',
                 'interventions.equipementable_id',
+                'interventions.date_debut',
+                'interventions.date_fin',
                 DB::raw('COALESCE(interventions.date_fin, interventions.date_planifiee, interventions.created_at) as date_evenement'),
             ])
             ->get();
@@ -99,6 +101,37 @@ class IndicateurPerformanceCalculator
 
         $dureeVieMoyenne = $ecarts->isNotEmpty() ? $ecarts->avg() : null;
 
+        // MTBF (temps moyen entre défaillances, en heures) : écart moyen entre les
+        // événements CORRECTIFS consécutifs de la pièce sur le MÊME équipement —
+        // mélanger les équipements fausserait la mesure (même principe que $ecarts).
+        $ecartsCorrectifs = $consommations
+            ->where('type_intervention', 'corrective')
+            ->groupBy(fn ($c) => $c->equipementable_type . '#' . $c->equipementable_id)
+            ->flatMap(function ($groupe) {
+                $dates = $groupe->pluck('date_evenement')
+                    ->map(fn ($d) => Carbon::parse($d))
+                    ->sort()
+                    ->values();
+
+                $ecartsGroupe = [];
+                for ($i = 1; $i < $dates->count(); $i++) {
+                    $ecartsGroupe[] = $dates[$i - 1]->diffInDays($dates[$i]);
+                }
+
+                return $ecartsGroupe;
+            });
+
+        $mtbfHeures = $ecartsCorrectifs->isNotEmpty() ? round($ecartsCorrectifs->avg() * 24, 2) : null;
+
+        // MTTR (temps moyen de réparation, en heures) : durée moyenne entre début et
+        // fin des interventions CORRECTIVES ayant consommé la pièce.
+        $mttrHeures = $consommations
+            ->where('type_intervention', 'corrective')
+            ->filter(fn ($c) => $c->date_debut && $c->date_fin)
+            ->map(fn ($c) => Carbon::parse($c->date_debut)->floatDiffInHours(Carbon::parse($c->date_fin)))
+            ->filter(fn ($heures) => $heures > 0)
+            ->pipe(fn ($durees) => $durees->isNotEmpty() ? round($durees->avg(), 2) : null);
+
         IndicateurPerformancePiece::updateOrCreate(
             [
                 'piece_id' => $piece->id,
@@ -109,6 +142,8 @@ class IndicateurPerformanceCalculator
                 'organisation_id' => $piece->organisation_id,
                 'nombre_remplacements' => $nombreRemplacements,
                 'duree_vie_moyenne_jours' => $dureeVieMoyenne,
+                'mtbf_heures' => $mtbfHeures,
+                'mttr_heures' => $mttrHeures,
                 'taux_defaillance' => $tauxDefaillance,
                 'cout_total_remplacement' => $coutTotal,
                 'derniere_maj' => now()->toDateString(),

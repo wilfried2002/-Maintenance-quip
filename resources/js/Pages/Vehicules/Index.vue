@@ -10,7 +10,7 @@ import { themes, statutOptions, criticiteOptions } from '@/moduleTheme';
 import { formatMontant, symboleDevise } from '@/currency';
 
 const props = defineProps({
-    vehicules: { type: Array, required: true },
+    vehicules: { type: [Array, Object], required: true },
     chauffeurs: { type: Array, required: true },
     fournisseurs: { type: Array, required: true },
     stats: { type: Object, required: true },
@@ -110,6 +110,7 @@ const fields = computed(() => [
                 <EquipmentManager
                     theme="green"
                     :items="vehicules"
+                    rows-key="vehicules"
                     :fields="fields"
                     store-url="/vehicules"
                     update-url-base="/vehicules"

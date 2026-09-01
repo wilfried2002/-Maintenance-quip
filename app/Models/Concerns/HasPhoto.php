@@ -27,13 +27,29 @@ trait HasPhoto
 
     /**
      * Get the photo URL attribute.
+     * Les photos vivent sur le disque privé (storage/app/private) : l'URL passe
+     * par FichierController, qui vérifie organisation + module avant de servir le
+     * fichier — plus d'URL /storage/... publique servie sans authentification.
      * URL relative (pas absolue) : évite de dépendre d'APP_URL, qui peut ne pas
      * correspondre à l'hôte/port réellement utilisé en local (ex. `php artisan serve`
      * sur un port personnalisé) — le navigateur résout le chemin sur l'origine courante.
      */
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo ? '/storage/' . ltrim($this->photo, '/') : null;
+        if (!$this->photo) {
+            return null;
+        }
+
+        $type = match (static::class) {
+            \App\Models\EquipementIndustriel::class => 'industriels',
+            \App\Models\Vehicule::class => 'vehicules',
+            \App\Models\EquipementBureau::class => 'bureau',
+            default => null,
+        };
+
+        return $type
+            ? route('fichiers.photo', ['type' => $type, 'id' => $this->getKey()], absolute: false)
+            : null;
     }
 
     /**

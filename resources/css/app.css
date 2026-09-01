@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Petits compléments propres à l'appli, distincts de public/vendor/sb-admin-2/sb-admin-2.css
-   (copie non modifiée du template, pour rester fidèle à l'original). */
+/* Petits compléments propres à l'appli, indépendants du template Materio
+   (scopé sous .materio-item/.materio-page). */
 .avatar-fallback {
     display: inline-flex;
     align-items: center;

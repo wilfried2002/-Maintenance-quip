@@ -10,14 +10,14 @@ const props = defineProps({
 });
 
 const t = themes.purple;
-const page = usePage();
-const statut = computed(() => page.props.flash?.status);
 
 const columns = [
     { key: 'reference', label: 'Référence' },
     { key: 'designation', label: 'Désignation' },
     { key: 'nombre_remplacements', label: 'Remplacements' },
     { key: 'duree_vie_moyenne_jours', label: 'Durée de vie moyenne' },
+    { key: 'mtbf_heures', label: 'MTBF' },
+    { key: 'mttr_heures', label: 'MTTR' },
     { key: 'taux_defaillance', label: 'Taux de défaillance' },
     { key: 'cout_total_remplacement', label: 'Coût total' },
     { key: 'derniere_maj', label: 'Dernière mise à jour' },
@@ -46,6 +46,10 @@ function pourcentage(valeur) {
 
 function jours(valeur) {
     return valeur === null || valeur === undefined ? '—' : `${Math.round(valeur)} j`;
+}
+
+function heures(valeur) {
+    return valeur === null || valeur === undefined ? '—' : `${Math.round(valeur)} h`;
 }
 
 function dateFr(valeur) {
@@ -95,10 +99,6 @@ function tauxClasses(valeur) {
                     Le taux de défaillance est la part des remplacements survenus lors d'une intervention corrective plutôt que préventive.
                 </p>
 
-                <div v-if="statut" class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200" role="status">
-                    {{ statut }}
-                </div>
-
                 <DataTable
                     theme="purple"
                     :columns="columns"
@@ -116,6 +116,12 @@ function tauxClasses(valeur) {
                     </template>
                     <template #cell-duree_vie_moyenne_jours="{ row }">
                         {{ jours(row.duree_vie_moyenne_jours) }}
+                    </template>
+                    <template #cell-mtbf_heures="{ row }">
+                        {{ heures(row.mtbf_heures) }}
+                    </template>
+                    <template #cell-mttr_heures="{ row }">
+                        {{ heures(row.mttr_heures) }}
                     </template>
                     <template #cell-taux_defaillance="{ row }">
                         <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium" :class="tauxClasses(row.taux_defaillance)">

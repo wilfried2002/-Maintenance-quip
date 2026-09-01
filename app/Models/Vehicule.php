@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\ConsigneActivite;
 use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasPhoto;
 use App\Models\Concerns\HasPlansMaintenance;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Vehicule extends Model
 {
-    use HasFactory, SoftDeletes, HasPhoto, HasDocuments, HasPlansMaintenance, BelongsToOrganisation;
+    use HasFactory, SoftDeletes, HasPhoto, HasDocuments, HasPlansMaintenance, BelongsToOrganisation, ConsigneActivite;
 
     /**
      * Ensure that photo_url accessor is always included in JSON responses.
@@ -57,6 +58,20 @@ class Vehicule extends Model
     public function chauffeur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'chauffeur_id');
+    }
+
+    /**
+     * Historique des relevés kilométriques (10/10) — chaque lecture du compteur
+     * est journalisée, les plans au kilomètre s'appuient dessus.
+     */
+    public function releves()
+    {
+        return $this->hasMany(ReleveKilometrique::class)->orderByDesc('date_releve')->orderByDesc('id');
+    }
+
+    public function dernierReleve(): ?ReleveKilometrique
+    {
+        return $this->releves()->first();
     }
 
     public function fournisseur(): BelongsTo

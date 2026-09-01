@@ -26,9 +26,20 @@ const page = usePage();
 const devise = page.props.auth.devise;
 const isAdmin = computed(() => page.props.auth.role === 'admin' || page.props.auth.isSuperAdmin);
 
+// Liste paginée côté serveur : le contrôleur envoie un paginator Laravel
+// ({data, current_page, last_page, total}) — on garde la compatibilité tableau
+// simple pour les usages internes (dashboard, preview).
+const interventionsRows = computed(() =>
+    Array.isArray(props.interventions) ? props.interventions : (props.interventions?.data ?? []));
+const interventionsPaginees = computed(() =>
+    Array.isArray(props.interventions) ? null : props.interventions);
+
 // Pré-remplit la recherche du DataTable quand on arrive depuis un résultat de la
 // recherche globale (topbar), qui lie vers cette page avec ?q=... — voir GlobalSearch.vue.
 const initialSearch = new URLSearchParams(window.location.search).get('q') ?? '';
+
+// Type de module pour les exports PDF (/rapports/liste/{type}/interventions).
+const rapportType = props.storeUrl.split('/')[1];
 
 const showForm = ref(false);
 const editingId = ref(null);
@@ -76,12 +87,8 @@ function noteDraft(intervention) {
 
 const notesForm = useForm({ notes: '' });
 
-function saveNotes(intervention) {
-    notesForm.notes = notesDrafts[intervention.id] ?? intervention.notes ?? '';
-    notesForm.put(`/interventions/${intervention.id}/notes`, { preserveScroll: true });
-}
-
-const statusForm = useForm({ statut: '' });
+// Workflow de statut : Démarrer / Terminer par le technicien assigné ou un admin.
+const statusForm = useForm({ statut: 'en_cours' });
 
 function canUpdateStatus(intervention) {
     return isAdmin.value || intervention.technicien_id === page.props.auth.user?.id;
@@ -97,10 +104,15 @@ function nextStatusLabel(intervention) {
 
 function updateStatus(intervention) {
     statusForm.statut = nextStatus(intervention);
-    statusForm.post(route('interventions.status.update', intervention.id), {
+    statusForm.post(`/interventions/${intervention.id}/status`, {
         preserveScroll: true,
         onFinish: () => statusForm.reset(),
     });
+}
+
+function saveNotes(intervention) {
+    notesForm.notes = notesDrafts[intervention.id] ?? intervention.notes ?? '';
+    notesForm.put(`/interventions/${intervention.id}/notes`, { preserveScroll: true });
 }
 
 const emptyValues = () => ({
@@ -188,6 +200,13 @@ function statutLabel(value) {
             >
                 {{ showForm ? 'Annuler' : 'Planifier une intervention' }}
             </button>
+            <a
+                :href="`/rapports/liste/${rapportType}/interventions`"
+                target="_blank"
+                class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                <i class="ri-file-pdf-line"></i> Exporter (PDF)
+            </a>
         </div>
 
         <div v-if="showFormBlock && showForm" class="materio-item card shadow mb-4">
@@ -306,7 +325,9 @@ function statutLabel(value) {
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="interventions"
+            :rows="interventionsRows"
+            :paginated="interventionsPaginees"
+            rows-key="interventions"
             expandable
             :initial-search="initialSearch"
             search-placeholder="Rechercher une intervention…"
@@ -339,15 +360,6 @@ function statutLabel(value) {
                     >
                         Rapport PDF
                     </a>
-                    <button
-                        v-if="canUpdateStatus(row) && ['planifiee', 'en_cours'].includes(row.statut)"
-                        type="button"
-                        :disabled="statusForm.processing"
-                        class="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-                        @click="updateStatus(row)"
-                    >
-                        {{ nextStatusLabel(row) }}
-                    </button>
                     <template v-if="isAdmin">
                         <button type="button" class="font-medium" :class="t.accent" @click="openEdit(row)">Modifier</button>
                         <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">Supprimer</button>
@@ -356,6 +368,27 @@ function statutLabel(value) {
             </template>
 
             <template #expanded="{ row }">
+                <div v-if="canUpdateStatus(row) && ['planifiee', 'en_cours'].includes(row.statut)" class="mb-4 flex items-center gap-3">
+                    <button
+                        type="button"
+                        :disabled="statusForm.processing"
+                        class="rounded-md px-3 py-1.5 text-sm font-medium shadow-sm disabled:opacity-50"
+                        :class="t.button"
+                        @click="updateStatus(row)"
+                    >
+                        {{ nextStatusLabel(row) }}
+                    </button>
+                    <button
+                        v-if="row.statut !== 'terminee'"
+                        type="button"
+                        class="text-sm font-medium text-red-600 hover:text-red-800"
+                        @click="statusForm.statut = 'annulee'; statusForm.post(`/interventions/${row.id}/status`, { preserveScroll: true })"
+                    >
+                        Annuler l’intervention
+                    </button>
+                    <InputError :message="statusForm.errors.statut" />
+                </div>
+
                 <div class="mb-4">
                     <InputLabel :for="`notes-${row.id}`" value="Notes" />
                     <textarea

@@ -19,6 +19,11 @@ class User extends Authenticatable
     /**
      * The attributes that are mass assignable.
      *
+     * IMPORTANT : is_super_admin n'y figure VOLONTAIREMENT pas — l'élévation de
+     * privilèges par mass assignment (ex. User::create($request->all()) avec
+     * is_super_admin=true dans la payload) doit rester impossible. Les seeders et
+     * factories ne sont pas concernés : ils contournent fillable (attributs bruts).
+     *
      * @var list<string>
      */
     protected $fillable = [
@@ -27,7 +32,6 @@ class User extends Authenticatable
         'password',
         'phone',
         'position',
-        'is_super_admin',
     ];
 
     /**

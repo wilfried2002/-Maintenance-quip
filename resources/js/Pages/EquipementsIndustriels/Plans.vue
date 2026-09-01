@@ -6,8 +6,8 @@ import ModuleNavTiles from '@/Components/ModuleNavTiles.vue';
 import { themes } from '@/moduleTheme';
 
 defineProps({
-    plans: { type: Array, required: true },
-    equipements: { type: Array, required: true },
+    plans: { type: [Array, Object], required: true },
+    equipements: { type: [Array, Object], required: true },
 });
 
 const t = themes.orange;

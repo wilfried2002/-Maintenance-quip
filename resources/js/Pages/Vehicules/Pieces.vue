@@ -6,7 +6,7 @@ import ModuleNavTiles from '@/Components/ModuleNavTiles.vue';
 import { themes } from '@/moduleTheme';
 
 defineProps({
-    pieces: { type: Array, required: true },
+    pieces: { type: [Array, Object], required: true },
     fournisseurs: { type: Array, required: true },
 });
 

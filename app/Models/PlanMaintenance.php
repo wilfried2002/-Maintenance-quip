@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\ConsigneActivite;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -11,7 +12,7 @@ use Illuminate\Support\Carbon;
 
 class PlanMaintenance extends Model
 {
-    use SoftDeletes, BelongsToOrganisation;
+    use SoftDeletes, BelongsToOrganisation, ConsigneActivite;
 
     protected $table = 'plans_maintenance';
 

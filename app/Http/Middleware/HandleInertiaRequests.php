@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Organisation;
+use App\Services\RoleService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -39,16 +40,20 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'role' => $user?->getRole(),
                 'isSuperAdmin' => $user?->isSuperAdmin() ?? false,
+                // Version groupée (2 requêtes au lieu de ~18) : voir
+                // RoleService::modulesAccessibles.
                 'accessibleModules' => $user
-                    ? collect(array_keys(config('modules.list')))
-                        ->filter(fn (string $module) => $user->hasModuleAccess($module))
-                        ->values()
+                    ? RoleService::modulesAccessibles($user)
                     : [],
                 'devise' => $currentOrganisation?->devise ?? 'XOF',
             ],
             'moduleDefs' => config('modules.list'),
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
+                // Messages d'erreur flashés (CheckOrganisationAccess, CheckSuperAdmin,
+                // etc.) : sans ce partage, ils étaient perdus silencieusement côté
+                // front — affichés par le composant FlashToasts (et sur le login).
+                'error' => fn () => $request->session()->get('error'),
             ],
             'organisationSwitcher' => ($user?->isSuperAdmin())
                 ? [

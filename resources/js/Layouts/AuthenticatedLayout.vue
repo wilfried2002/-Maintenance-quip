@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import GlobalSearch from '@/Components/GlobalSearch.vue';
+import FlashToasts from '@/Components/FlashToasts.vue';
 
 const page = usePage();
 
@@ -73,6 +74,9 @@ const year = new Date().getFullYear();
 
 <template>
     <div class="materio-item layout-wrapper layout-content-navbar">
+        <!-- Toasts globaux (succès/erreur flashés par le serveur) -->
+        <FlashToasts />
+
         <div class="materio-item layout-container">
             <!-- Sidebar -->
             <aside id="layout-menu" class="materio-item layout-menu menu-vertical menu bg-menu-theme">
@@ -107,6 +111,46 @@ const year = new Date().getFullYear();
                             <Link class="materio-item menu-link" :href="route(m.route)">
                                 <i class="materio-item menu-icon icon-base ri" :class="m.icon"></i>
                                 <div>{{ m.label }}</div>
+                            </Link>
+                        </li>
+                    </template>
+
+                    <li class="materio-item menu-header mt-5">
+                        <span class="materio-item menu-header-text">Interventions</span>
+                    </li>
+                    <li class="materio-item menu-item" :class="{ active: route().current('demandes.mes') || route().current('demandes.index') }">
+                        <Link class="materio-item menu-link" :href="route('demandes.mes')">
+                            <i class="materio-item menu-icon icon-base ri ri-mail-send-line"></i>
+                            <div>Mes demandes</div>
+                        </Link>
+                    </li>
+                    <li v-if="(page.props.auth.accessibleModules ?? []).length > 0" class="materio-item menu-item" :class="{ active: route().current('demandes.index') }">
+                        <Link class="materio-item menu-link" :href="route('demandes.index')">
+                            <i class="materio-item menu-icon icon-base ri ri-inbox-unarchive-line"></i>
+                            <div>Demandes à traiter</div>
+                        </Link>
+                    </li>
+                    <li v-if="(page.props.auth.accessibleModules ?? []).length > 0" class="materio-item menu-item" :class="{ active: isActive('calendrier.index') }">
+                        <Link class="materio-item menu-link" :href="route('calendrier.index')">
+                            <i class="materio-item menu-icon icon-base ri ri-calendar-2-line"></i>
+                            <div>Calendrier</div>
+                        </Link>
+                    </li>
+
+                    <li v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin" class="materio-item menu-header mt-5">
+                        <span class="materio-item menu-header-text">Traçabilité</span>
+                    </li>
+                    <template v-if="$page.props.auth.role === 'admin' || $page.props.auth.isSuperAdmin">
+                        <li class="materio-item menu-item" :class="{ active: isActive('activites.index') }">
+                            <Link class="materio-item menu-link" :href="route('activites.index')">
+                                <i class="materio-item menu-icon icon-base ri ri-file-list-3-line"></i>
+                                <div>Journal d'activité</div>
+                            </Link>
+                        </li>
+                        <li class="materio-item menu-item" :class="{ active: isActive('corbeille.index') }">
+                            <Link class="materio-item menu-link" :href="route('corbeille.index')">
+                                <i class="materio-item menu-icon icon-base ri ri-delete-bin-line"></i>
+                                <div>Corbeille</div>
                             </Link>
                         </li>
                     </template>

@@ -22,7 +22,7 @@ const journalColumns = [
 ];
 
 const props = defineProps({
-    couts: { type: Array, required: true },
+    couts: { type: [Array, Object], required: true },
     totalParType: { type: Object, required: true },
     totalGeneral: { type: Number, required: true },
     parEquipement: { type: Array, required: true },
@@ -30,6 +30,12 @@ const props = defineProps({
 });
 
 const t = themes.teal;
+
+// Journal paginé côté serveur (paginator Laravel) — compat tableau conservée.
+const coutsRows = computed(() =>
+    Array.isArray(props.couts) ? props.couts : (props.couts?.data ?? []));
+const coutsPaginees = computed(() =>
+    Array.isArray(props.couts) ? null : props.couts);
 
 const typeCoutLabels = {
     main_oeuvre: "Main d'œuvre",
@@ -203,7 +209,9 @@ function dateFr(valeur) {
                 <DataTable
                     theme="teal"
                     :columns="journalColumns"
-                    :rows="couts"
+                    :rows="coutsRows"
+                    :paginated="coutsPaginees"
+                    rows-key="couts"
                     search-placeholder="Rechercher dans le journal…"
                     empty-text="Aucun coût enregistré (hors pièces, comptabilisées ci-dessus)."
                 >

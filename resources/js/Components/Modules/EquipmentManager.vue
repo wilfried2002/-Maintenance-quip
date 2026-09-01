@@ -8,18 +8,26 @@ import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
     theme: { type: String, required: true },
-    items: { type: Array, required: true },
+    items: { type: [Array, Object], required: true },
     fields: { type: Array, required: true },
     storeUrl: { type: String, required: true },
     updateUrlBase: { type: String, required: true },
     destroyUrlBase: { type: String, required: true },
     showUrlBase: { type: String, required: true },
     itemLabel: { type: Function, required: true },
+    // Nom du prop de page rafraîchi par la pagination serveur (only:)
+    rowsKey: { type: String, default: 'equipements' },
     showFormBlock: { type: Boolean, default: true },
     showTable: { type: Boolean, default: true },
 });
 
 const t = themes[props.theme] ?? themes.slate;
+
+// Liste paginée côté serveur (paginator Laravel) — compat tableau conservée.
+const itemsRows = computed(() =>
+    Array.isArray(props.items) ? props.items : (props.items?.data ?? []));
+const itemsPaginees = computed(() =>
+    Array.isArray(props.items) ? null : props.items);
 
 const showForm = ref(false);
 const editingId = ref(null);
@@ -92,6 +100,9 @@ function destroy(item) {
     }
 }
 
+// Type de module dans les URLs de rapports (/rapports/fiche/{type}/{id}…).
+const rapportType = props.storeUrl.split('/')[1];
+
 const visibleFields = computed(() => props.fields.filter((f) => f.column !== false));
 const firstFieldKey = computed(() => props.fields[0]?.key);
 const columns = computed(() => [
@@ -111,6 +122,13 @@ const columns = computed(() => [
             >
                 {{ showForm ? 'Annuler' : 'Nouvel enregistrement' }}
             </button>
+            <a
+                :href="`/rapports/liste/${rapportType}/equipements`"
+                target="_blank"
+                class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+                <i class="ri-file-pdf-line"></i> Exporter la liste (PDF)
+            </a>
         </div>
 
         <!-- Formulaire d'enregistrement / édition -->
@@ -210,7 +228,9 @@ const columns = computed(() => [
         <DataTable v-if="showTable"
             :theme="theme"
             :columns="columns"
-            :rows="items"
+            :rows="itemsRows"
+            :paginated="itemsPaginees"
+            :rows-key="rowsKey"
             search-placeholder="Rechercher un enregistrement…"
             empty-text="Aucun enregistrement pour le moment."
         >
@@ -252,6 +272,8 @@ const columns = computed(() => [
                 <button type="button" class="mr-3 font-medium" :class="t.accent" @click="openEdit(row)">
                     Modifier
                 </button>
+                <a :href="`/rapports/fiche/${rapportType}/${row.id}`" target="_blank" class="mr-3 font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400" title="Fiche PDF">PDF</a>
+                <a :href="`/rapports/etiquette/${rapportType}/${row.id}`" target="_blank" class="mr-3 font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400" title="Étiquette QR (PDF)">Étiquette</a>
                 <button type="button" class="font-medium text-red-600 hover:text-red-800" @click="destroy(row)">
                     Supprimer
                 </button>

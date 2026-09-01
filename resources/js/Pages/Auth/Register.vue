@@ -1,14 +1,10 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
     name: '',
     email: '',
+    organisation_code: '',
     password: '',
     password_confirmation: '',
 });
@@ -21,93 +17,114 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Register" />
+    <Head title="Créer un compte" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="name" value="Name" />
+    <div class="materio-page">
+        <div class="position-relative">
+            <div class="authentication-wrapper authentication-basic container-p-y">
+                <div class="authentication-inner py-6 mx-4">
+                    <div class="card p-sm-7 p-2">
+                        <div class="app-brand justify-content-center mt-5">
+                            <span class="app-brand-logo demo text-primary">
+                                <i class="icon-base ri ri-tools-fill icon-32px"></i>
+                            </span>
+                            <span class="app-brand-text demo text-heading fw-semibold ms-2">Maintenance Équip.</span>
+                        </div>
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
+                        <div class="card-body mt-1">
+                            <h4 class="mb-1">Créer un compte</h4>
+                            <p class="mb-5">
+                                Votre compte sera rattaché à votre organisation et devra être activé
+                                par un de ses administrateurs avant la première connexion.
+                            </p>
 
-                <InputError class="mt-2" :message="form.errors.name" />
+                            <form @submit.prevent="submit">
+                                <div class="form-floating form-floating-outline mb-5">
+                                    <input
+                                        id="organisation_code"
+                                        v-model="form.organisation_code"
+                                        type="text"
+                                        :class="['form-control', form.errors.organisation_code ? 'is-invalid' : '']"
+                                        placeholder="Code organisation"
+                                        required
+                                        autocomplete="off"
+                                    />
+                                    <label for="organisation_code">Code organisation (ex : DEMO01)</label>
+                                    <div v-if="form.errors.organisation_code" class="invalid-feedback d-block">{{ form.errors.organisation_code }}</div>
+                                </div>
+
+                                <div class="form-floating form-floating-outline mb-5">
+                                    <input
+                                        id="name"
+                                        v-model="form.name"
+                                        type="text"
+                                        :class="['form-control', form.errors.name ? 'is-invalid' : '']"
+                                        placeholder="Nom complet"
+                                        required
+                                        autocomplete="name"
+                                        autofocus
+                                    />
+                                    <label for="name">Nom complet</label>
+                                    <div v-if="form.errors.name" class="invalid-feedback d-block">{{ form.errors.name }}</div>
+                                </div>
+
+                                <div class="form-floating form-floating-outline mb-5">
+                                    <input
+                                        id="email"
+                                        v-model="form.email"
+                                        type="email"
+                                        :class="['form-control', form.errors.email ? 'is-invalid' : '']"
+                                        placeholder="Adresse email"
+                                        required
+                                        autocomplete="username"
+                                    />
+                                    <label for="email">Adresse email</label>
+                                    <div v-if="form.errors.email" class="invalid-feedback d-block">{{ form.errors.email }}</div>
+                                </div>
+
+                                <div class="form-floating form-floating-outline mb-5">
+                                    <input
+                                        id="password"
+                                        v-model="form.password"
+                                        type="password"
+                                        :class="['form-control', form.errors.password ? 'is-invalid' : '']"
+                                        placeholder="Mot de passe"
+                                        required
+                                        autocomplete="new-password"
+                                    />
+                                    <label for="password">Mot de passe</label>
+                                    <div v-if="form.errors.password" class="invalid-feedback d-block">{{ form.errors.password }}</div>
+                                </div>
+
+                                <div class="form-floating form-floating-outline mb-5">
+                                    <input
+                                        id="password_confirmation"
+                                        v-model="form.password_confirmation"
+                                        type="password"
+                                        :class="['form-control', form.errors.password_confirmation ? 'is-invalid' : '']"
+                                        placeholder="Confirmer le mot de passe"
+                                        required
+                                        autocomplete="new-password"
+                                    />
+                                    <label for="password_confirmation">Confirmer le mot de passe</label>
+                                    <div v-if="form.errors.password_confirmation" class="invalid-feedback d-block">{{ form.errors.password_confirmation }}</div>
+                                </div>
+
+                                <div class="mb-5">
+                                    <button type="submit" class="btn btn-primary d-grid w-100" :disabled="form.processing">
+                                        Créer mon compte
+                                    </button>
+                                </div>
+                            </form>
+
+                            <p class="text-center mb-0 small">
+                                <span>Déjà inscrit ?</span>
+                                <Link :href="route('login')" class="ms-1">Se connecter</Link>
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <div class="mt-4">
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel
-                    for="password_confirmation"
-                    value="Confirm Password"
-                />
-
-                <TextInput
-                    id="password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password_confirmation"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError
-                    class="mt-2"
-                    :message="form.errors.password_confirmation"
-                />
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    :href="route('login')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
-                >
-                    Already registered?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Register
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+        </div>
+    </div>
 </template>

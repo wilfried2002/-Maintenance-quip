@@ -6,6 +6,7 @@ use App\Models\Intervention;
 use App\Notifications\InterventionAssignee;
 use App\Notifications\InterventionStatusUpdated;
 use App\Services\IndicateurPerformanceCalculator;
+use App\Services\RoleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class InterventionController extends Controller
 {
-    /** The assigned technician advances the work; an admin can supervise it. */
+    /**
+     * Workflow de statut : le technicien assigné fait avancer le travail, un
+     * admin peut le superviser. Transitions contrôlées et dates horodatées.
+     */
     public function updateStatus(Request $request, Intervention $intervention): RedirectResponse
     {
         $user = $request->user();
@@ -65,17 +69,22 @@ class InterventionController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $previousTechnicienId = $intervention->technicien_id;
-        $previousStatus = $intervention->statut;
+        $ancienTechnicienId = $intervention->technicien_id;
+        $ancienStatut = $intervention->statut;
+
         $intervention->update($data);
 
-        if ($intervention->technicien_id && $intervention->technicien_id !== $previousTechnicienId) {
+        // Nouvelle assignation → préviens le technicien.
+        if ($intervention->technicien_id && $intervention->technicien_id !== $ancienTechnicienId) {
             $intervention->load(['technicien', 'equipementable']);
             $intervention->technicien?->notify(new InterventionAssignee($intervention));
         }
-        if ($intervention->statut !== $previousStatus) {
+
+        // Changement de statut direct (édition admin) → préviens les acteurs.
+        if ($intervention->statut !== $ancienStatut) {
             $this->notifyStatusChange($intervention->fresh(), $request->user());
         }
+
         $intervention->pieces()->get()->each(fn ($piece) => $calculator->recalculerPiece($piece));
 
         return back()->with('status', 'Intervention mise à jour.');
@@ -100,35 +109,49 @@ class InterventionController extends Controller
     }
 
     /**
-     * Enregistrer les notes de terrain d'une intervention (observations du technicien
-     * pendant/après l'exécution) — distinct de description, saisie à la planification.
+     * Notifie les admins de l'organisation courante (et le technicien assigné
+     * s'il n'est pas l'acteur du changement) d'un changement de statut.
      */
-    private function notifyStatusChange(Intervention $intervention, object $actor): void
+    private function notifyStatusChange(Intervention $intervention, object $acteur): void
     {
         $labels = [
             'en_cours' => 'démarrée',
             'terminee' => 'terminée',
             'annulee' => 'annulée',
         ];
-        $organisation = $actor->getCurrentOrganisation();
+
+        $organisation = $acteur->getCurrentOrganisation();
         $admins = $organisation
             ? $organisation->users()->wherePivot('role', 'admin')->wherePivot('is_active', true)->get()
             : collect();
 
-        $recipients = $admins
+        $destinataires = $admins
             ->when($intervention->technicien_id, fn ($users) => $users->push($intervention->technicien))
             ->filter()
             ->unique('id')
-            ->reject(fn ($user) => $user->id === $actor->id);
+            ->reject(fn ($user) => $user->id === $acteur->id);
 
-        $recipients->each(fn ($user) => $user->notify(new InterventionStatusUpdated(
+        $destinataires->each(fn ($user) => $user->notify(new InterventionStatusUpdated(
             $intervention,
             $labels[$intervention->statut] ?? $intervention->statut,
         )));
     }
 
+    /**
+     * Enregistrer les notes de terrain d'une intervention (observations du technicien
+     * pendant/après l'exécution) — distinct de description, saisie à la planification.
+     */
     public function updateNotes(Request $request, Intervention $intervention): RedirectResponse
     {
+        // Notes accessibles uniquement aux rôles du module de L'ÉQUIPEMENT de
+        // l'intervention (le check.role de la route ne voit que l'union des rôles
+        // des 3 modules, l'URL ne portant pas de préfixe de module).
+        abort_unless(
+            RoleService::peutAccederIntervention($request->user(), $intervention),
+            403,
+            'Vous n\'avez pas accès au module de l\'équipement concerné par cette intervention.'
+        );
+
         $data = $request->validate([
             'notes' => ['nullable', 'string'],
         ]);
