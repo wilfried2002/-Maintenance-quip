@@ -3,14 +3,55 @@
 namespace App\Http\Controllers;
 
 use App\Models\Intervention;
+use App\Notifications\InterventionAssignee;
+use App\Notifications\InterventionStatusUpdated;
 use App\Services\IndicateurPerformanceCalculator;
 use App\Services\RoleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class InterventionController extends Controller
 {
+    /**
+     * Workflow de statut : le technicien assigné fait avancer le travail, un
+     * admin peut le superviser. Transitions contrôlées et dates horodatées.
+     */
+    public function updateStatus(Request $request, Intervention $intervention): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isAdmin() || $intervention->technicien_id === $user->id, 403);
+
+        $data = $request->validate([
+            'statut' => ['required', 'in:en_cours,terminee,annulee'],
+        ]);
+
+        $transitions = [
+            'planifiee' => ['en_cours', 'annulee'],
+            'en_cours' => ['terminee', 'annulee'],
+        ];
+
+        if (!in_array($data['statut'], $transitions[$intervention->statut] ?? [], true)) {
+            throw ValidationException::withMessages([
+                'statut' => 'Cette transition de statut n’est pas autorisée.',
+            ]);
+        }
+
+        $updates = ['statut' => $data['statut']];
+        if ($data['statut'] === 'en_cours' && !$intervention->date_debut) {
+            $updates['date_debut'] = now();
+        }
+        if ($data['statut'] === 'terminee' && !$intervention->date_fin) {
+            $updates['date_fin'] = now();
+        }
+
+        $intervention->update($updates);
+        $this->notifyStatusChange($intervention->fresh(), $user);
+
+        return back()->with('status', 'Statut de l’intervention mis à jour.');
+    }
+
     public function update(Request $request, Intervention $intervention, IndicateurPerformanceCalculator $calculator): RedirectResponse
     {
         $data = $request->validate([
@@ -28,7 +69,22 @@ class InterventionController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        $ancienTechnicienId = $intervention->technicien_id;
+        $ancienStatut = $intervention->statut;
+
         $intervention->update($data);
+
+        // Nouvelle assignation → préviens le technicien.
+        if ($intervention->technicien_id && $intervention->technicien_id !== $ancienTechnicienId) {
+            $intervention->load(['technicien', 'equipementable']);
+            $intervention->technicien?->notify(new InterventionAssignee($intervention));
+        }
+
+        // Changement de statut direct (édition admin) → préviens les acteurs.
+        if ($intervention->statut !== $ancienStatut) {
+            $this->notifyStatusChange($intervention->fresh(), $request->user());
+        }
+
         $intervention->pieces()->get()->each(fn ($piece) => $calculator->recalculerPiece($piece));
 
         return back()->with('status', 'Intervention mise à jour.');
@@ -50,6 +106,35 @@ class InterventionController extends Controller
         $pieces->each(fn ($piece) => $calculator->recalculerPiece($piece));
 
         return back()->with('status', 'Intervention supprimée et stock des pièces restitué.');
+    }
+
+    /**
+     * Notifie les admins de l'organisation courante (et le technicien assigné
+     * s'il n'est pas l'acteur du changement) d'un changement de statut.
+     */
+    private function notifyStatusChange(Intervention $intervention, object $acteur): void
+    {
+        $labels = [
+            'en_cours' => 'démarrée',
+            'terminee' => 'terminée',
+            'annulee' => 'annulée',
+        ];
+
+        $organisation = $acteur->getCurrentOrganisation();
+        $admins = $organisation
+            ? $organisation->users()->wherePivot('role', 'admin')->wherePivot('is_active', true)->get()
+            : collect();
+
+        $destinataires = $admins
+            ->when($intervention->technicien_id, fn ($users) => $users->push($intervention->technicien))
+            ->filter()
+            ->unique('id')
+            ->reject(fn ($user) => $user->id === $acteur->id);
+
+        $destinataires->each(fn ($user) => $user->notify(new InterventionStatusUpdated(
+            $intervention,
+            $labels[$intervention->statut] ?? $intervention->statut,
+        )));
     }
 
     /**

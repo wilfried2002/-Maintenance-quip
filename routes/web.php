@@ -252,6 +252,7 @@ Route::middleware(['auth', 'verified', 'check.organisation'])->group(function ()
         ->group(function () {
             Route::get('/interventions/{intervention}/rapport', [InterventionRapportController::class, 'show'])->name('interventions.rapport');
             Route::put('/interventions/{intervention}/notes', [InterventionController::class, 'updateNotes'])->name('interventions.notes.update');
+            Route::post('/interventions/{intervention}/status', [InterventionController::class, 'updateStatus'])->name('interventions.status.update');
         });
     Route::middleware('check.role:admin')->group(function () {
         Route::put('/interventions/{intervention}', [InterventionController::class, 'update'])->name('interventions.update');

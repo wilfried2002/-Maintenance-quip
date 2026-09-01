@@ -87,6 +87,29 @@ function noteDraft(intervention) {
 
 const notesForm = useForm({ notes: '' });
 
+// Workflow de statut : Démarrer / Terminer par le technicien assigné ou un admin.
+const statusForm = useForm({ statut: 'en_cours' });
+
+function canUpdateStatus(intervention) {
+    return isAdmin.value || intervention.technicien_id === page.props.auth.user?.id;
+}
+
+function nextStatus(intervention) {
+    return intervention.statut === 'planifiee' ? 'en_cours' : 'terminee';
+}
+
+function nextStatusLabel(intervention) {
+    return intervention.statut === 'planifiee' ? 'Démarrer' : 'Terminer';
+}
+
+function updateStatus(intervention) {
+    statusForm.statut = nextStatus(intervention);
+    statusForm.post(`/interventions/${intervention.id}/status`, {
+        preserveScroll: true,
+        onFinish: () => statusForm.reset(),
+    });
+}
+
 function saveNotes(intervention) {
     notesForm.notes = notesDrafts[intervention.id] ?? intervention.notes ?? '';
     notesForm.put(`/interventions/${intervention.id}/notes`, { preserveScroll: true });
@@ -345,6 +368,27 @@ function statutLabel(value) {
             </template>
 
             <template #expanded="{ row }">
+                <div v-if="canUpdateStatus(row) && ['planifiee', 'en_cours'].includes(row.statut)" class="mb-4 flex items-center gap-3">
+                    <button
+                        type="button"
+                        :disabled="statusForm.processing"
+                        class="rounded-md px-3 py-1.5 text-sm font-medium shadow-sm disabled:opacity-50"
+                        :class="t.button"
+                        @click="updateStatus(row)"
+                    >
+                        {{ nextStatusLabel(row) }}
+                    </button>
+                    <button
+                        v-if="row.statut !== 'terminee'"
+                        type="button"
+                        class="text-sm font-medium text-red-600 hover:text-red-800"
+                        @click="statusForm.statut = 'annulee'; statusForm.post(`/interventions/${row.id}/status`, { preserveScroll: true })"
+                    >
+                        Annuler l’intervention
+                    </button>
+                    <InputError :message="statusForm.errors.statut" />
+                </div>
+
                 <div class="mb-4">
                     <InputLabel :for="`notes-${row.id}`" value="Notes" />
                     <textarea

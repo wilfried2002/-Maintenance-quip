@@ -103,6 +103,12 @@ trait HandlesEquipementModule
 
         $this->recordCoutMainOeuvre($intervention);
 
+        // Assignation d'un technicien → notification « intervention à démarrer ».
+        if ($intervention->technicien_id) {
+            $intervention->load(['technicien', 'equipementable']);
+            $intervention->technicien?->notify(new \App\Notifications\InterventionAssignee($intervention));
+        }
+
         return back()->with('status', 'Intervention enregistrée.');
     }
 
